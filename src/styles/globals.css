@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Reset & base ─────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #0a0a0a;
+  color: #e8e8e8;
+  font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Tesla browser touch hardening ────────────────────────────────────────── */
+
+/* Remove tap highlight flash on touch (Tesla browser shows it by default) */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent text selection on UI chrome — map labels, buttons, cards */
+.glass-card, button, [role="button"] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Prevent callout on long-press (iOS/Tesla) */
+a, button, img {
+  -webkit-touch-callout: none;
+}
+
+/* ── Leaflet container ────────────────────────────────────────────────────── */
+.leaflet-container {
+  background: #1a1a1a !important;
+  font-family: inherit;
+  /* Let the map handle all its own touch events */
+  touch-action: none;
+}
+
+/* Hide default Leaflet zoom control — we use ZoomControls component */
+.leaflet-control-zoom {
+  display: none !important;
+}
+
+/* Tesla-themed minimal attribution */
+.leaflet-control-attribution {
+  background: rgba(10,10,10,0.7) !important;
+  color: #4a4a4a !important;
+  font-size: 9px !important;
+  padding: 2px 6px !important;
+  border-radius: 4px 0 0 0 !important;
+}
+.leaflet-control-attribution a {
+  color: #5a5a5a !important;
+}
+
+/* Dark map tiles tint — reduces eye strain in car */
+.leaflet-tile-pane {
+  filter: brightness(0.82) contrast(1.08) saturate(0.75);
+}
+
+/* Smooth tile loading */
+.leaflet-tile {
+  will-change: opacity;
+}
+
+/* ── Leaflet popup — dark theme ───────────────────────────────────────────── */
+.leaflet-popup-content-wrapper {
+  background: #161616 !important;
+  border: 1px solid #2a2a2a !important;
+  border-radius: 14px !important;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.85) !important;
+  color: #e8e8e8 !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-tip-container {
+  display: none;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  width: auto !important;
+}
+
+/* Larger close button — 44px touch target */
+.leaflet-popup-close-button {
+  width: 44px !important;
+  height: 44px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 22px !important;
+  color: #666 !important;
+  top: 4px !important;
+  right: 4px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+}
+.leaflet-popup-close-button:active {
+  background: #2a2a2a !important;
+  color: #e8e8e8 !important;
+}
+
+/* ── MarkerCluster — use our custom iconCreateFunction, suppress defaults ── */
+.leaflet-cluster-anim .leaflet-zoom-animated {
+  transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 2px; }
+
+/* ── Component utilities ──────────────────────────────────────────────────── */
+@layer components {
+  .glass-card {
+    @apply bg-tesla-card border border-tesla-border rounded-2xl shadow-card;
+    /* backdrop-blur intentionally omitted — causes GPU layer jank in Tesla browser */
+  }
+
+  .tesla-label {
+    @apply text-[10px] font-semibold uppercase tracking-widest text-tesla-subtle;
+  }
+
+  .tesla-value {
+    @apply text-base font-semibold text-tesla-text;
+  }
+}
