@@ -1,14 +1,30 @@
-export type IncidentType = 'ACCIDENT' | 'HAZARD' | 'JAM' | 'ROAD_CLOSED' | 'OTHER'
+export type IncidentType =
+  | 'ACCIDENT'
+  | 'FOG'
+  | 'DANGEROUS_CONDITIONS'
+  | 'RAIN'
+  | 'ICE'
+  | 'JAM'
+  | 'LANE_CLOSED'
+  | 'ROAD_CLOSED'
+  | 'ROAD_WORKS'
+  | 'WIND'
+  | 'FLOODING'
+  | 'DETOUR'
+  | 'OTHER'
 
 export interface Incident {
-  uuid:        string
+  id:          string
   type:        IncidentType
-  subtype:     string
   lat:         number
   lng:         number
-  street:      string
-  city:        string
-  reliability: number
-  thumbsUp:    number
-  pubMillis:   number
+  description: string
+  from:        string
+  to:          string
+  delay:       number     // seconds
+  length:      number     // metres
+  magnitude:   number     // 0–4
+  roadNumbers: string[]
+  startTime:   string
+  endTime:     string
 }

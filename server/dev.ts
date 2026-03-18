@@ -7,7 +7,7 @@ import express from 'express'
 import cors from 'cors'
 import { validateBboxQuery } from '../api/_lib/utils/validate.js'
 import { aggregateStations } from '../api/_lib/merge/mergeStations.js'
-import { fetchWazeAlerts }   from '../api/_lib/providers/waze.js'
+import { fetchTomTomIncidents } from '../api/_lib/providers/tomtom.js'
 
 const app  = express()
 const PORT = 3001
@@ -38,17 +38,20 @@ app.get('/api/ev/stations', async (req, res) => {
   }
 })
 
-app.get('/api/waze/incidents', async (req, res) => {
+app.get('/api/traffic/incidents', async (req, res) => {
   const validation = validateBboxQuery(req.query as Record<string, string | undefined>)
   if (!validation.ok) { res.status(400).json({ error: validation.error }); return }
 
+  const apiKey = process.env['TOMTOM_API_KEY']
+  if (!apiKey) { res.json({ incidents: [], error: 'TOMTOM_API_KEY not set' }); return }
+
   try {
-    const alerts = await fetchWazeAlerts(validation.bbox)
+    const incidents = await fetchTomTomIncidents(validation.bbox, apiKey)
     res.setHeader('Cache-Control', 'no-store')
-    res.json({ alerts })
+    res.json({ incidents })
   } catch (err) {
-    console.error('[dev-api] Waze error:', err)
-    res.status(502).json({ error: 'Waze unavailable', alerts: [] })
+    console.error('[dev-api] TomTom error:', err)
+    res.status(502).json({ incidents: [], error: 'TomTom unavailable' })
   }
 })
 

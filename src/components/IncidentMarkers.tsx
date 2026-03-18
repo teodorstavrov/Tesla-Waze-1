@@ -1,6 +1,5 @@
 /**
- * Renders Waze live traffic incidents as Leaflet markers.
- * Lifecycle mirrors EVMarkers: one effect owns the layer, another syncs data.
+ * Renders TomTom traffic incidents as Leaflet markers.
  */
 import { useEffect, useRef } from 'react'
 import type { Map as LMap, LayerGroup } from 'leaflet'
@@ -33,29 +32,33 @@ export function IncidentMarkers({ map, incidents }: Props) {
 
     for (const inc of incidents) {
       const marker = L.marker([inc.lat, inc.lng], {
-        icon:        incidentIcon(inc.type),
-        interactive: true,
+        icon:         incidentIcon(inc.type),
+        interactive:  true,
         zIndexOffset: 500,
       })
 
-      const label    = INCIDENT_LABELS[inc.type]
-      const street   = inc.street ? `<div style="font-size:12px;color:#8a8a8a;margin-top:2px">${inc.street}</div>` : ''
-      const subtype  = inc.subtype
-        ? `<div style="font-size:11px;color:#aaa;margin-top:1px">${formatSubtype(inc.subtype)}</div>`
+      const label   = INCIDENT_LABELS[inc.type]
+      const road    = inc.roadNumbers.length ? `<span style="color:#3d9df3">${inc.roadNumbers.join(', ')}</span> · ` : ''
+      const route   = inc.from && inc.to
+        ? `<div style="font-size:11px;color:#8a8a8a;margin-top:2px">${inc.from} → ${inc.to}</div>`
+        : inc.from
+          ? `<div style="font-size:11px;color:#8a8a8a;margin-top:2px">${inc.from}</div>`
+          : ''
+      const delay   = inc.delay > 0
+        ? `<span style="color:#f5a623"> +${formatDelay(inc.delay)}</span>`
         : ''
-      const age      = formatAge(inc.pubMillis)
-      const thumbs   = inc.thumbsUp > 0
-        ? `<span style="color:#3d9df3;margin-left:8px">👍 ${inc.thumbsUp}</span>`
+      const length  = inc.length > 0
+        ? `<span style="color:#8a8a8a"> · ${formatLength(inc.length)}</span>`
         : ''
 
       marker.bindPopup(`
         <div style="min-width:160px;font-family:system-ui,sans-serif">
           <div style="font-size:14px;font-weight:600;color:#e8e8e8">${label}</div>
-          ${subtype}
-          ${street}
-          <div style="font-size:11px;color:#8a8a8a;margin-top:4px">${age}${thumbs}</div>
+          ${inc.description ? `<div style="font-size:12px;color:#aaa;margin-top:2px">${inc.description}</div>` : ''}
+          ${route}
+          <div style="font-size:11px;color:#8a8a8a;margin-top:4px">${road}${delay}${length}</div>
         </div>
-      `, { maxWidth: 240, className: 'tesla-popup' })
+      `, { maxWidth: 260, className: 'tesla-popup' })
 
       layer.addLayer(marker)
     }
@@ -64,18 +67,13 @@ export function IncidentMarkers({ map, incidents }: Props) {
   return null
 }
 
-function formatSubtype(raw: string): string {
-  return raw
-    .replace(/^[A-Z]+_/, '')        // strip prefix
-    .replace(/_/g, ' ')
-    .toLowerCase()
-    .replace(/^\w/, (c) => c.toUpperCase())
+function formatDelay(seconds: number): string {
+  if (seconds < 60)   return `${seconds}s delay`
+  if (seconds < 3600) return `${Math.round(seconds / 60)}min delay`
+  return `${(seconds / 3600).toFixed(1)}h delay`
 }
 
-function formatAge(pubMillis: number): string {
-  const mins = Math.round((Date.now() - pubMillis) / 60_000)
-  if (mins < 1)  return 'Just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  return `${hrs}h ago`
+function formatLength(metres: number): string {
+  if (metres < 1000) return `${metres}m`
+  return `${(metres / 1000).toFixed(1)}km`
 }
