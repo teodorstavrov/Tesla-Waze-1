@@ -16,6 +16,13 @@ export default defineConfig({
         target: 'http://localhost:3001',
         changeOrigin: true,
       },
+      // Proxy Waze in dev to avoid CORS
+      '/waze-proxy': {
+        target: 'https://www.waze.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/waze-proxy/, ''),
+        secure: true,
+      },
     },
   },
   build: {
