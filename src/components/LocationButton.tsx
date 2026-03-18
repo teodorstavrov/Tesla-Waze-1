@@ -57,7 +57,7 @@ export function LocationButton({ map }: Props) {
   }
 
   return (
-    <div className="absolute right-4 bottom-44 z-[1000]">
+    <div className="absolute left-4 bottom-24 z-[1000]">
       <button
         onClick={locate}
         aria-label="Center on my location"
