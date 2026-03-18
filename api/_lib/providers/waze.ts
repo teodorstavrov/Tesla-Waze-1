@@ -1,6 +1,9 @@
 /**
  * Waze Live Map — public georss endpoint, no key required.
  * Returns alerts (accidents, hazards, closures) for a bounding box.
+ *
+ * Waze's API requires browser-like headers and occasionally rotates endpoints.
+ * We try two endpoints; if both fail we return an empty array (non-critical overlay).
  */
 
 import type { BoundingBox } from '../types.js'
@@ -39,6 +42,20 @@ interface WazeRaw {
   }>
 }
 
+const ENDPOINTS = [
+  'https://www.waze.com/live-map/api/georss',
+  'https://www.waze.com/row-lm/api/georss',
+]
+
+const BROWSER_HEADERS = {
+  'Accept':          'application/json, text/plain, */*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Cache-Control':   'no-cache',
+  'Pragma':          'no-cache',
+  'Referer':         'https://www.waze.com/live-map',
+  'User-Agent':      'Mozilla/5.0 (Linux; Android 10; Tesla) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+}
+
 export async function fetchWazeAlerts(bbox: BoundingBox): Promise<WazeAlert[]> {
   const params = new URLSearchParams({
     top:    String(bbox.north),
@@ -49,35 +66,37 @@ export async function fetchWazeAlerts(bbox: BoundingBox): Promise<WazeAlert[]> {
     types:  'alerts',
   })
 
-  const res = await fetch(
-    `https://www.waze.com/live-map/api/georss?${params}`,
-    {
-      headers: {
-        'Accept':     'application/json',
-        'User-Agent': 'tesla-ev-nav/1.0',
-        'Referer':    'https://www.waze.com/live-map',
-      },
-      signal: AbortSignal.timeout(8_000),
-    },
-  )
+  for (const base of ENDPOINTS) {
+    try {
+      const res = await fetch(`${base}?${params}`, {
+        headers: BROWSER_HEADERS,
+        signal:  AbortSignal.timeout(8_000),
+      })
 
-  if (!res.ok) throw new Error(`Waze ${res.status}`)
+      if (!res.ok) continue
 
-  const data: WazeRaw = await res.json()
-  const alerts = data.alerts ?? []
+      const data: WazeRaw = await res.json()
+      const alerts = data.alerts ?? []
 
-  return alerts.map((a) => ({
-    uuid:        a.uuid,
-    type:        normalizeType(a.type),
-    subtype:     a.subtype ?? '',
-    lat:         a.location.y,
-    lng:         a.location.x,
-    street:      a.street ?? '',
-    city:        a.city ?? '',
-    reliability: a.reliability,
-    thumbsUp:    a.nThumbsUp ?? 0,
-    pubMillis:   a.pubMillis,
-  }))
+      return alerts.map((a) => ({
+        uuid:        a.uuid,
+        type:        normalizeType(a.type),
+        subtype:     a.subtype ?? '',
+        lat:         a.location.y,
+        lng:         a.location.x,
+        street:      a.street ?? '',
+        city:        a.city ?? '',
+        reliability: a.reliability,
+        thumbsUp:    a.nThumbsUp ?? 0,
+        pubMillis:   a.pubMillis,
+      }))
+    } catch {
+      // try next endpoint
+    }
+  }
+
+  // Both endpoints failed — return empty, overlay is non-critical
+  return []
 }
 
 function normalizeType(raw: string): WazeAlertType {

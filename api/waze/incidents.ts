@@ -6,8 +6,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { validateBboxQuery }                   from '../_lib/utils/validate.js'
 import { fetchWazeAlerts }                     from '../_lib/providers/waze.js'
 import { MemoryCache }                         from '../_lib/utils/cache.js'
+import type { WazeAlert }                      from '../_lib/providers/waze.js'
 
-const cache = new MemoryCache<ReturnType<typeof fetchWazeAlerts>>(30_000) // 30s
+const cache = new MemoryCache<WazeAlert[]>(30_000) // 30s TTL
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const parsed = validateBboxQuery(req.query as Record<string, string>)
@@ -16,18 +17,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { bbox } = parsed
-  const key = `${bbox.north}:${bbox.south}:${bbox.east}:${bbox.west}`
+  const key = `${bbox.north.toFixed(4)}:${bbox.south.toFixed(4)}:${bbox.east.toFixed(4)}:${bbox.west.toFixed(4)}`
 
-  let alerts = cache.get(key)
-  if (!alerts) {
-    try {
-      alerts = fetchWazeAlerts(bbox)
-      cache.set(key, alerts)
-    } catch {
-      return res.status(502).json({ error: 'Waze unavailable' })
-    }
+  const cached = cache.get(key)
+  if (cached) {
+    res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60')
+    return res.status(200).json({ alerts: cached })
   }
 
+  const alerts = await fetchWazeAlerts(bbox)
+  cache.set(key, alerts)
+
   res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60')
-  return res.status(200).json({ alerts: await alerts })
+  return res.status(200).json({ alerts })
 }

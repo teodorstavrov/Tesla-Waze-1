@@ -7,6 +7,7 @@ import express from 'express'
 import cors from 'cors'
 import { validateBboxQuery } from '../api/_lib/utils/validate.js'
 import { aggregateStations } from '../api/_lib/merge/mergeStations.js'
+import { fetchWazeAlerts }   from '../api/_lib/providers/waze.js'
 
 const app  = express()
 const PORT = 3001
@@ -34,6 +35,20 @@ app.get('/api/ev/stations', async (req, res) => {
   } catch (err) {
     console.error('[dev-api] Unexpected error:', err)
     res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+app.get('/api/waze/incidents', async (req, res) => {
+  const validation = validateBboxQuery(req.query as Record<string, string | undefined>)
+  if (!validation.ok) { res.status(400).json({ error: validation.error }); return }
+
+  try {
+    const alerts = await fetchWazeAlerts(validation.bbox)
+    res.setHeader('Cache-Control', 'no-store')
+    res.json({ alerts })
+  } catch (err) {
+    console.error('[dev-api] Waze error:', err)
+    res.status(502).json({ error: 'Waze unavailable', alerts: [] })
   }
 })
 
