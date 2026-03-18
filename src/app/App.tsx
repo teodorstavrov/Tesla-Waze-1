@@ -3,9 +3,11 @@ import type { Map as LMap } from 'leaflet'
 
 import { MapShell }            from '@/components/MapShell'
 import { EVMarkers }           from '@/components/EVMarkers'
+import { IncidentMarkers }     from '@/components/IncidentMarkers'
 import { ZoomControls }        from '@/components/ZoomControls'
 import { LocationButton }      from '@/components/LocationButton'
 import { SearchBar }           from '@/components/SearchBar'
+import { IncidentToggle }      from '@/components/IncidentToggle'
 import { FloatingTitleCard }   from '@/components/FloatingTitleCard'
 import { FloatingStatsCard }   from '@/components/FloatingStatsCard'
 import { FloatingFiltersCard } from '@/components/FloatingFiltersCard'
@@ -16,13 +18,16 @@ import { useEVStore }                              from '@/features/ev/store'
 import { useEVPolling }                            from '@/features/ev/hooks/useEVPolling'
 import { useAutoRefresh }                          from '@/features/ev/hooks/useAutoRefresh'
 import { applyFilter, sourceCounts, filterCounts } from '@/features/ev/selectors'
+import { useIncidentStore }                        from '@/features/incidents/store'
+import { useIncidentPolling }                      from '@/features/incidents/hooks/useIncidentPolling'
 
 export function App() {
   const [map, setMap]  = useState<LMap | null>(null)
   const mapRef         = useRef<LMap | null>(null)
   const { trigger }    = useEVPolling()
+  const { trigger: triggerIncidents } = useIncidentPolling()
 
-  // ── Store ──────────────────────────────────────────────────────────────────
+  // ── EV Store ───────────────────────────────────────────────────────────────
   const stations      = useEVStore((s) => s.stations)
   const loading       = useEVStore((s) => s.loading)
   const error         = useEVStore((s) => s.error)
@@ -31,10 +36,15 @@ export function App() {
   const setFilterMode = useEVStore((s) => s.setFilterMode)
   const setError      = useEVStore((s) => s.setError)
 
+  // ── Incident Store ─────────────────────────────────────────────────────────
+  const incidents        = useIncidentStore((s) => s.incidents)
+  const incidentsVisible = useIncidentStore((s) => s.visible)
+  const setIncidentsVisible = useIncidentStore((s) => s.setVisible)
+
   // ── Derived ────────────────────────────────────────────────────────────────
-  const counts            = sourceCounts(stations)
-  const fCounts           = filterCounts(stations)
-  const filteredStations  = applyFilter(stations, filterMode)
+  const counts           = sourceCounts(stations)
+  const fCounts          = filterCounts(stations)
+  const filteredStations = applyFilter(stations, filterMode)
 
   // ── Auto-refresh every 2 min while parked ─────────────────────────────────
   useAutoRefresh(map, trigger)
@@ -44,11 +54,13 @@ export function App() {
     setMap(m)
     mapRef.current = m
     trigger(m)
-  }, [trigger])
+    triggerIncidents(m)
+  }, [trigger, triggerIncidents])
 
   const handleBoundsChange = useCallback((m: LMap) => {
     trigger(m)
-  }, [trigger])
+    triggerIncidents(m)
+  }, [trigger, triggerIncidents])
 
   // Retry: re-fetch current viewport
   const handleRetry = useCallback(() => {
@@ -56,10 +68,13 @@ export function App() {
     if (mapRef.current) trigger(mapRef.current)
   }, [trigger, setError])
 
-  // Search: after map pans to geocoded location, fetch stations there
+  // Search: after map pans to geocoded location, fetch stations + incidents
   const handlePlace = useCallback((_lat: number, _lng: number) => {
-    if (mapRef.current) trigger(mapRef.current)
-  }, [trigger])
+    if (mapRef.current) {
+      trigger(mapRef.current)
+      triggerIncidents(mapRef.current)
+    }
+  }, [trigger, triggerIncidents])
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-tesla-bg">
@@ -68,6 +83,10 @@ export function App() {
 
       {/* Markers */}
       <EVMarkers map={map} stations={filteredStations} />
+      {incidentsVisible && <IncidentMarkers map={map} incidents={incidents} />}
+
+      {/* Search bar — top center */}
+      <SearchBar map={map} onPlace={handlePlace} />
 
       {/* Floating UI */}
       <FloatingTitleCard loading={loading} />
@@ -82,10 +101,12 @@ export function App() {
         stationCounts={fCounts}
       />
 
-      {/* Search bar — top center */}
-      <SearchBar map={map} onPlace={handlePlace} />
-
-      {/* Controls — right side, vertically stacked */}
+      {/* Controls */}
+      <IncidentToggle
+        visible={incidentsVisible}
+        count={incidents.length}
+        onToggle={() => setIncidentsVisible(!incidentsVisible)}
+      />
       <LocationButton map={map} />
       <ZoomControls   map={map} />
 
