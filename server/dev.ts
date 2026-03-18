@@ -1,17 +1,12 @@
 /**
- * Local development API server — mirrors the Vercel handler logic on Express.
- *
+ * Local development API server — mirrors the Vercel handler on Express.
  * Run: npm run dev:api  (port 3001)
- * Vite proxies /api/* → http://localhost:3001
- *
- * Set environment variables in .env (copy from .env.example).
  */
-
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
-import { validateBboxQuery } from '../api/ev/utils/validate.js'
-import { aggregateStations } from '../api/ev/merge/mergeStations.js'
+import { validateBboxQuery } from '../api/_lib/utils/validate.js'
+import { aggregateStations } from '../api/_lib/merge/mergeStations.js'
 
 const app  = express()
 const PORT = 3001
@@ -21,18 +16,13 @@ app.use(express.json())
 
 app.get('/api/ev/stations', async (req, res) => {
   const validation = validateBboxQuery(req.query as Record<string, string | undefined>)
-
-  if (!validation.ok) {
-    res.status(400).json({ error: validation.error })
-    return
-  }
+  if (!validation.ok) { res.status(400).json({ error: validation.error }); return }
 
   try {
     const result = await aggregateStations(validation.bbox, {
       openChargeMapKey: process.env['OPENCHARGEMAP_API_KEY'],
       isDev: true,
     })
-
     res.setHeader('Cache-Control', 'no-store')
     res.json({
       stations:         result.stations,

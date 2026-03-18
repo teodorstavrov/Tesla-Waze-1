@@ -50,13 +50,8 @@ export function normalizeTeslaStation(raw: RawTeslaStation): EVStation | null {
   const name = (raw.name ?? raw.title ?? 'Tesla Supercharger').trim()
   const stallCount = raw.stallCount ?? raw.stalls ?? 0
 
-  // Live API uses "powerKilowatt", fallback to other field names
-  const rawAny = raw as Record<string, unknown>
-  const powerKw =
-    (typeof rawAny['powerKilowatt'] === 'number' ? rawAny['powerKilowatt'] as number : 0) ||
-    raw.powerKw  ||
-    raw.maxPower ||
-    0
+  // supercharge.info uses "powerKilowatt"; interface already typed for it
+  const powerKw = raw.powerKilowatt ?? raw.powerKw ?? raw.maxPower ?? 0
 
   const connectors: Connector[] = stallCount > 0
     ? [{

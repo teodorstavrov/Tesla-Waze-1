@@ -5,40 +5,26 @@
  * Tesla, OpenChargeMap, and OpenStreetMap/Overpass.
  */
 
-import { validateBboxQuery } from './utils/validate.js'
-import { aggregateStations } from './merge/mergeStations.js'
-import { isDev } from './utils/debug.js'
-import type { EVStation } from './types.js'
+import { validateBboxQuery } from '../_lib/utils/validate.js'
+import { aggregateStations } from '../_lib/merge/mergeStations.js'
+import { isDev }             from '../_lib/utils/debug.js'
+import type { EVStation }    from '../_lib/types.js'
 
-/** Strip raw provider data — halves response size in production. */
+/** Strip raw provider data — reduces response size ~75% in production. */
 function stripRaw(stations: EVStation[]): EVStation[] {
   return stations.map(({ raw: _raw, ...rest }) => rest as EVStation)
 }
 
-// Vercel passes (req, res) compatible with Node http.IncomingMessage / ServerResponse
 export default async function handler(req: any, res: any): Promise<void> {
-  // CORS — allow all origins (EV data is public)
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
 
-  if (req.method === 'OPTIONS') {
-    res.status(204).end()
-    return
-  }
+  if (req.method === 'OPTIONS') { res.status(204).end(); return }
+  if (req.method !== 'GET')     { res.status(405).json({ error: 'Method not allowed' }); return }
 
-  if (req.method !== 'GET') {
-    res.status(405).json({ error: 'Method not allowed' })
-    return
-  }
-
-  // ── Validate bbox ────────────────────────────────────────────────────────
   const validation = validateBboxQuery(req.query ?? {})
-  if (!validation.ok) {
-    res.status(400).json({ error: validation.error })
-    return
-  }
+  if (!validation.ok) { res.status(400).json({ error: validation.error }); return }
 
-  // ── Aggregate ────────────────────────────────────────────────────────────
   try {
     const result = await aggregateStations(validation.bbox, {
       openChargeMapKey: process.env['OPENCHARGEMAP_API_KEY'],
@@ -54,7 +40,6 @@ export default async function handler(req: any, res: any): Promise<void> {
       ...(isDev() && result._debugMeta ? { _debug: result._debugMeta } : {}),
     }
 
-    // Cache-friendly: 30s fresh, up to 60s stale-while-revalidate
     res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60')
     res.status(200).json(payload)
   } catch (err) {
