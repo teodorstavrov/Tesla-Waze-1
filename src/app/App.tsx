@@ -5,6 +5,7 @@ import { MapShell }            from '@/components/MapShell'
 import { EVMarkers }           from '@/components/EVMarkers'
 import { ZoomControls }        from '@/components/ZoomControls'
 import { LocationButton }      from '@/components/LocationButton'
+import { SearchBar }           from '@/components/SearchBar'
 import { FloatingTitleCard }   from '@/components/FloatingTitleCard'
 import { FloatingStatsCard }   from '@/components/FloatingStatsCard'
 import { FloatingFiltersCard } from '@/components/FloatingFiltersCard'
@@ -55,6 +56,11 @@ export function App() {
     if (mapRef.current) trigger(mapRef.current)
   }, [trigger, setError])
 
+  // Search: after map pans to geocoded location, fetch stations there
+  const handlePlace = useCallback((_lat: number, _lng: number) => {
+    if (mapRef.current) trigger(mapRef.current)
+  }, [trigger])
+
   return (
     <div className="relative w-full h-full overflow-hidden bg-tesla-bg">
       {/* Map */}
@@ -75,6 +81,9 @@ export function App() {
         onFilterChange={setFilterMode}
         stationCounts={fCounts}
       />
+
+      {/* Search bar — top center */}
+      <SearchBar map={map} onPlace={handlePlace} />
 
       {/* Controls — right side, vertically stacked */}
       <LocationButton map={map} />
