@@ -118,6 +118,32 @@ export function buildPopupHTML(station: EVStation): string {
         </div>` : ''}
       </div>
 
+      <!-- Live availability button (OCM stations only) -->
+      ${station.source === 'ocm' && station.id ? `
+      <div id="ocm-status-${station.id}"
+           style="padding:8px 18px;border-top:1px solid #222;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:12px;color:#555;">Loading availability…</span>
+      </div>
+      <script>
+        (function() {
+          var el = document.getElementById('ocm-status-${station.id}');
+          if (!el) return;
+          fetch('/api/ocm/status?id=${station.id}')
+            .then(function(r) { return r.json() })
+            .then(function(d) {
+              var statuses = d.status || [];
+              if (!statuses.length) { el.innerHTML = '<span style="font-size:12px;color:#555">Status unavailable</span>'; return; }
+              var available = statuses.filter(function(s) { return s.statusType === 'Available' }).length;
+              var total = statuses.length;
+              var colour = available > 0 ? '#3dd68c' : '#e31937';
+              el.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:'+colour+';flex-shrink:0;display:inline-block"></span>'
+                + '<span style="font-size:13px;font-weight:600;color:'+colour+'">'
+                + available + ' / ' + total + ' available</span>';
+            })
+            .catch(function() { el.innerHTML = '<span style="font-size:12px;color:#555">Status unavailable</span>'; });
+        })();
+      </script>` : ''}
+
       <!-- Navigate button — full-width, 48px, easy to tap -->
       <a href="${navUrl}" target="_blank" rel="noopener"
          style="

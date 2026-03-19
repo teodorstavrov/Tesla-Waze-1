@@ -50,8 +50,8 @@ app.get('/api/traffic/incidents', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store')
     res.json({ incidents })
   } catch (err) {
-    console.error('[dev-api] TomTom error:', err)
-    res.status(502).json({ incidents: [], error: 'TomTom unavailable' })
+    console.error('[dev-api] TomTom error:', String(err))
+    res.status(502).json({ incidents: [], error: String(err) })
   }
 })
 

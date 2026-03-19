@@ -98,19 +98,25 @@ export async function fetchTomTomIncidents(
   const params = new URLSearchParams({
     key:                apiKey,
     bbox:               bboxParam,
-    fields:             '{incidents{type,geometry{type,coordinates},properties{id,iconCategory,magnitudeOfDelay,events{description,code},from,to,delay,length,roadNumbers,startTime,endTime}}}',
     language:           'en-GB',
     timeValidityFilter: 'present',
   })
 
-  const res = await fetch(
-    `https://api.tomtom.com/traffic/services/5/incidentDetails?${params}`,
-    { signal: AbortSignal.timeout(8_000) },
-  )
+  const url = `https://api.tomtom.com/traffic/services/5/incidentDetails?${params}`
+  console.log('[tomtom] GET', url.replace(apiKey, '***'))
 
-  if (!res.ok) throw new Error(`TomTom ${res.status}`)
+  const res = await fetch(url, { signal: AbortSignal.timeout(10_000) })
 
-  const data: TomTomRaw = await res.json()
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`TomTom HTTP ${res.status}: ${body.slice(0, 200)}`)
+  }
+
+  const raw = await res.json()
+  console.log('[tomtom] response keys:', Object.keys(raw))
+  if (raw.incidents?.length) console.log('[tomtom] first incident:', JSON.stringify(raw.incidents[0]).slice(0, 300))
+
+  const data = raw as TomTomRaw
   const incidents = data.incidents ?? []
 
   return incidents.map((inc) => {
