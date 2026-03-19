@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import type { Map as LMap } from 'leaflet'
 
 import { MapShell }            from '@/components/MapShell'
@@ -17,6 +17,7 @@ import { FloatingStatsCard }   from '@/components/FloatingStatsCard'
 import { FloatingFiltersCard } from '@/components/FloatingFiltersCard'
 import { LoadingOverlay }      from '@/components/LoadingOverlay'
 import { ErrorBanner }         from '@/components/ErrorBanner'
+import { SirenOverlay }        from '@/components/SirenOverlay'
 
 import { useEVStore }                              from '@/features/ev/store'
 import { useEVPolling }                            from '@/features/ev/hooks/useEVPolling'
@@ -25,11 +26,29 @@ import { applyFilter, sourceCounts, filterCounts } from '@/features/ev/selectors
 import { useRouteStore }                           from '@/features/route/store'
 import { useEventStore }                           from '@/features/events/store'
 import { useThemeStore }                           from '@/features/theme/store'
+import { useProximityAlerts }                      from '@/features/alerts/useProximityAlerts'
 
 export function App() {
-  const [map, setMap]  = useState<LMap | null>(null)
-  const mapRef         = useRef<LMap | null>(null)
-  const { trigger }    = useEVPolling()
+  const [map, setMap]    = useState<LMap | null>(null)
+  const mapRef           = useRef<LMap | null>(null)
+  const { trigger }      = useEVPolling()
+  const [siren, setSiren] = useState(false)
+
+  // Unlock speech synthesis on first user interaction (browser autoplay policy)
+  useEffect(() => {
+    const unlock = () => {
+      const u = new SpeechSynthesisUtterance('')
+      u.volume = 0
+      window.speechSynthesis.speak(u)
+      document.removeEventListener('touchstart', unlock)
+      document.removeEventListener('click', unlock)
+    }
+    document.addEventListener('touchstart', unlock, { once: true })
+    document.addEventListener('click', unlock, { once: true })
+  }, [])
+
+  const handlePolice = useCallback(() => setSiren(true), [])
+  useProximityAlerts({ onPolice: handlePolice })
 
   // ── Theme ──────────────────────────────────────────────────────────────────
   const isDark       = useThemeStore((s) => s.isDark)
@@ -106,6 +125,9 @@ export function App() {
       {/* Status */}
       <LoadingOverlay visible={loading && stations.length === 0} />
       <ErrorBanner message={error} onDismiss={() => setError(null)} onRetry={handleRetry} />
+
+      {/* Police siren flash */}
+      <SirenOverlay active={siren} onDone={() => setSiren(false)} />
     </div>
   )
 }

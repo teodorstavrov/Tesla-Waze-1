@@ -140,6 +140,23 @@ a, button, img {
   }
 }
 
+/* ── Police siren flash overlay ───────────────────────────────────────────── */
+@keyframes siren-flash {
+  0%   { background: rgba(61, 157, 243, 0.30); }   /* blue  */
+  25%  { background: rgba(227, 25,  55, 0.30); }   /* red   */
+  50%  { background: rgba(61, 157, 243, 0.30); }   /* blue  */
+  75%  { background: rgba(227, 25,  55, 0.30); }   /* red   */
+  100% { background: rgba(61, 157, 243, 0.30); }
+}
+
+.siren-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  pointer-events: none;
+  animation: siren-flash 0.45s linear infinite;
+}
+
 /* ── Heading arrow pulse animation ────────────────────────────────────────── */
 @keyframes gps-pulse {
   0%   { transform: scale(1);   opacity: 0.6; }
