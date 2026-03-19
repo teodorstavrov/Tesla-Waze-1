@@ -85,18 +85,14 @@ export async function fetchOCMStations(
       },
     })
 
-    if (res.status === 403 || res.status === 401) {
-      // Invalid key — return empty, don't throw (treated as skip)
-      return []
-    }
-
-    if (!res.ok) {
-      throw new Error(`OCM returned ${res.status}: ${res.statusText}`)
-    }
+    if (!res.ok) return []
 
     const data = await res.json() as RawOCMStation[]
     cache.set(key, data, TTL_OCM_MS)
     return data
+  } catch {
+    // timeout or network error — treat as empty, don't surface as ERR
+    return []
   } finally {
     clearTimeout(timer)
   }
