@@ -20,7 +20,11 @@ export const DEFAULT_ZOOM = 14
 export const MIN_ZOOM = 5
 export const MAX_ZOOM = 18
 
-/** OSM tile layer config */
-export const OSM_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+/** Tile layers */
+export const TILES = {
+  dark:  'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+}
+export const OSM_TILE_URL   = TILES.dark   // legacy alias
 export const OSM_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'

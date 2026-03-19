@@ -3,9 +3,12 @@ import type { Map as LMap } from 'leaflet'
 
 import { MapShell }            from '@/components/MapShell'
 import { EVMarkers }           from '@/components/EVMarkers'
+import { EventMarkers }        from '@/components/EventMarkers'
 import { RouteLayer }          from '@/components/RouteLayer'
 import { HeadingArrow }        from '@/components/HeadingArrow'
 import { RoutePanel }          from '@/components/RoutePanel'
+import { ReportButton }        from '@/components/ReportButton'
+import { ThemeToggle }         from '@/components/ThemeToggle'
 import { ZoomControls }        from '@/components/ZoomControls'
 import { LocationButton }      from '@/components/LocationButton'
 import { SearchBar }           from '@/components/SearchBar'
@@ -20,11 +23,17 @@ import { useEVPolling }                            from '@/features/ev/hooks/use
 import { useAutoRefresh }                          from '@/features/ev/hooks/useAutoRefresh'
 import { applyFilter, sourceCounts, filterCounts } from '@/features/ev/selectors'
 import { useRouteStore }                           from '@/features/route/store'
+import { useEventStore }                           from '@/features/events/store'
+import { useThemeStore }                           from '@/features/theme/store'
 
 export function App() {
   const [map, setMap]  = useState<LMap | null>(null)
   const mapRef         = useRef<LMap | null>(null)
   const { trigger }    = useEVPolling()
+
+  // ── Theme ──────────────────────────────────────────────────────────────────
+  const isDark       = useThemeStore((s) => s.isDark)
+  const toggleTheme  = useThemeStore((s) => s.toggle)
 
   // ── EV Store ───────────────────────────────────────────────────────────────
   const stations      = useEVStore((s) => s.stations)
@@ -35,50 +44,49 @@ export function App() {
   const setFilterMode = useEVStore((s) => s.setFilterMode)
   const setError      = useEVStore((s) => s.setError)
 
-  // ── Route Store ────────────────────────────────────────────────────────────
-  const route = useRouteStore((s) => s.route)
+  // ── Route & Events ─────────────────────────────────────────────────────────
+  const route  = useRouteStore((s) => s.route)
+  const events = useEventStore((s) => s.events)
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const counts           = sourceCounts(stations)
   const fCounts          = filterCounts(stations)
   const filteredStations = applyFilter(stations, filterMode)
 
-  // ── Auto-refresh every 2 min while parked ─────────────────────────────────
   useAutoRefresh(map, trigger)
 
-  // ── Map callbacks ──────────────────────────────────────────────────────────
   const handleMapReady = useCallback((m: LMap) => {
     setMap(m)
     mapRef.current = m
     trigger(m)
   }, [trigger])
 
-  const handleBoundsChange = useCallback((m: LMap) => {
-    trigger(m)
-  }, [trigger])
-
-  const handleRetry = useCallback(() => {
+  const handleBoundsChange = useCallback((m: LMap) => { trigger(m) }, [trigger])
+  const handleRetry        = useCallback(() => {
     setError(null)
     if (mapRef.current) trigger(mapRef.current)
   }, [trigger, setError])
-
   const handlePlace = useCallback((_lat: number, _lng: number) => {
     if (mapRef.current) trigger(mapRef.current)
   }, [trigger])
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-tesla-bg">
+    // Apply theme class so CSS tile filter can target it
+    <div className={`relative w-full h-full overflow-hidden bg-tesla-bg ${isDark ? 'theme-dark' : 'theme-light'}`}>
       {/* Map */}
-      <MapShell onMapReady={handleMapReady} onBoundsChange={handleBoundsChange} />
+      <MapShell isDark={isDark} onMapReady={handleMapReady} onBoundsChange={handleBoundsChange} />
 
       {/* Markers */}
-      <EVMarkers map={map} stations={filteredStations} route={route} />
+      <EVMarkers   map={map} stations={filteredStations} route={route} />
+      <EventMarkers map={map} events={events} />
 
       {/* Route */}
       <RouteLayer map={map} route={route} />
 
       {/* Live position + heading arrow */}
       <HeadingArrow map={map} />
+
+      {/* Panels */}
       <RoutePanel />
 
       {/* Search bar — top center */}
@@ -86,28 +94,18 @@ export function App() {
 
       {/* Floating UI */}
       <FloatingTitleCard loading={loading} />
-      <FloatingStatsCard
-        counts={counts}
-        loading={loading}
-        lastResponse={lastResponse}
-      />
-      <FloatingFiltersCard
-        filterMode={filterMode}
-        onFilterChange={setFilterMode}
-        stationCounts={fCounts}
-      />
+      <FloatingStatsCard counts={counts} loading={loading} lastResponse={lastResponse} />
+      <FloatingFiltersCard filterMode={filterMode} onFilterChange={setFilterMode} stationCounts={fCounts} />
 
       {/* Controls */}
+      <ThemeToggle  isDark={isDark} onToggle={toggleTheme} />
+      <ReportButton map={map} />
       <LocationButton map={map} />
       <ZoomControls   map={map} />
 
       {/* Status */}
       <LoadingOverlay visible={loading && stations.length === 0} />
-      <ErrorBanner
-        message={error}
-        onDismiss={() => setError(null)}
-        onRetry={handleRetry}
-      />
+      <ErrorBanner message={error} onDismiss={() => setError(null)} onRetry={handleRetry} />
     </div>
   )
 }

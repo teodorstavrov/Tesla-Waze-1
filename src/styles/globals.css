@@ -64,8 +64,11 @@ a, button, img {
 }
 
 /* Dark map tiles tint — reduces eye strain in car */
-.leaflet-tile-pane {
+.theme-dark .leaflet-tile-pane {
   filter: brightness(0.82) contrast(1.08) saturate(0.75);
+}
+.theme-light .leaflet-tile-pane {
+  filter: none;
 }
 
 /* Smooth tile loading */
