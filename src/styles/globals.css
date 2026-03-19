@@ -136,3 +136,18 @@ a, button, img {
     @apply text-base font-semibold text-tesla-text;
   }
 }
+
+/* ── Heading arrow pulse animation ────────────────────────────────────────── */
+@keyframes gps-pulse {
+  0%   { transform: scale(1);   opacity: 0.6; }
+  70%  { transform: scale(2.4); opacity: 0;   }
+  100% { transform: scale(2.4); opacity: 0;   }
+}
+
+.gps-pulse-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2.5px solid #3d9df3;
+  animation: gps-pulse 1.8s ease-out infinite;
+}

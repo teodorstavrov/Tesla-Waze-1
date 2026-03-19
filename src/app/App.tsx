@@ -3,14 +3,12 @@ import type { Map as LMap } from 'leaflet'
 
 import { MapShell }            from '@/components/MapShell'
 import { EVMarkers }           from '@/components/EVMarkers'
-import { IncidentMarkers }     from '@/components/IncidentMarkers'
 import { RouteLayer }          from '@/components/RouteLayer'
 import { HeadingArrow }        from '@/components/HeadingArrow'
 import { RoutePanel }          from '@/components/RoutePanel'
 import { ZoomControls }        from '@/components/ZoomControls'
 import { LocationButton }      from '@/components/LocationButton'
 import { SearchBar }           from '@/components/SearchBar'
-import { IncidentToggle }      from '@/components/IncidentToggle'
 import { FloatingTitleCard }   from '@/components/FloatingTitleCard'
 import { FloatingStatsCard }   from '@/components/FloatingStatsCard'
 import { FloatingFiltersCard } from '@/components/FloatingFiltersCard'
@@ -21,15 +19,12 @@ import { useEVStore }                              from '@/features/ev/store'
 import { useEVPolling }                            from '@/features/ev/hooks/useEVPolling'
 import { useAutoRefresh }                          from '@/features/ev/hooks/useAutoRefresh'
 import { applyFilter, sourceCounts, filterCounts } from '@/features/ev/selectors'
-import { useIncidentStore }                        from '@/features/incidents/store'
-import { useIncidentPolling }                      from '@/features/incidents/hooks/useIncidentPolling'
 import { useRouteStore }                           from '@/features/route/store'
 
 export function App() {
   const [map, setMap]  = useState<LMap | null>(null)
   const mapRef         = useRef<LMap | null>(null)
   const { trigger }    = useEVPolling()
-  const { trigger: triggerIncidents } = useIncidentPolling()
 
   // ── EV Store ───────────────────────────────────────────────────────────────
   const stations      = useEVStore((s) => s.stations)
@@ -39,11 +34,6 @@ export function App() {
   const lastResponse  = useEVStore((s) => s.lastResponse)
   const setFilterMode = useEVStore((s) => s.setFilterMode)
   const setError      = useEVStore((s) => s.setError)
-
-  // ── Incident Store ─────────────────────────────────────────────────────────
-  const incidents           = useIncidentStore((s) => s.incidents)
-  const incidentsVisible    = useIncidentStore((s) => s.visible)
-  const setIncidentsVisible = useIncidentStore((s) => s.setVisible)
 
   // ── Route Store ────────────────────────────────────────────────────────────
   const route = useRouteStore((s) => s.route)
@@ -61,13 +51,11 @@ export function App() {
     setMap(m)
     mapRef.current = m
     trigger(m)
-    triggerIncidents(m)
-  }, [trigger, triggerIncidents])
+  }, [trigger])
 
   const handleBoundsChange = useCallback((m: LMap) => {
     trigger(m)
-    triggerIncidents(m)
-  }, [trigger, triggerIncidents])
+  }, [trigger])
 
   const handleRetry = useCallback(() => {
     setError(null)
@@ -75,11 +63,8 @@ export function App() {
   }, [trigger, setError])
 
   const handlePlace = useCallback((_lat: number, _lng: number) => {
-    if (mapRef.current) {
-      trigger(mapRef.current)
-      triggerIncidents(mapRef.current)
-    }
-  }, [trigger, triggerIncidents])
+    if (mapRef.current) trigger(mapRef.current)
+  }, [trigger])
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-tesla-bg">
@@ -88,7 +73,6 @@ export function App() {
 
       {/* Markers */}
       <EVMarkers map={map} stations={filteredStations} route={route} />
-      {incidentsVisible && <IncidentMarkers map={map} incidents={incidents} />}
 
       {/* Route */}
       <RouteLayer map={map} route={route} />
@@ -114,11 +98,6 @@ export function App() {
       />
 
       {/* Controls */}
-      <IncidentToggle
-        visible={incidentsVisible}
-        count={incidents.length}
-        onToggle={() => setIncidentsVisible(!incidentsVisible)}
-      />
       <LocationButton map={map} />
       <ZoomControls   map={map} />
 

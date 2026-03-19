@@ -105,7 +105,7 @@ export function RoutePanel() {
 
   if (!open) {
     return (
-      <div className="absolute left-4 bottom-56 z-[1000]">
+      <div className="absolute left-4 bottom-40 z-[1000]">
         <button
           onClick={() => { setOpen(true); setTimeout(() => originRef.current?.focus(), 80) }}
           aria-label="Plan route"
