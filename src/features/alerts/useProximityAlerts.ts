@@ -1,31 +1,43 @@
 /**
- * Watches GPS position and fires voice alerts + callbacks when the user
- * enters the proximity threshold of any reported event.
+ * Watches GPS position and fires:
+ *  - Voice alerts when within the configured threshold for each event type
+ *  - onPolice callback (siren flash) when within 800m of a police marker
+ *  - onNearEvent callback when within 5m of ANY event (confirmation prompt)
  *
- * A single watchPosition is held for the component lifetime.
- * Events and callbacks are read via refs to avoid restarting the watcher.
+ * A single watchPosition lives for the component lifetime.
+ * Events and callbacks are read via refs so the watcher never restarts.
  */
 import { useEffect, useRef } from 'react'
 import { useEventStore }     from '@/features/events/store'
 import { haversine }         from '@/lib/haversine'
 import { ALERT_DISTANCES, ALERT_LABELS_BG, COOLDOWN_MS } from './config'
-import type { EventType } from '@/features/events/types'
+import type { EventType }    from '@/features/events/types'
+import type { ReportedEvent } from '@/features/events/types'
+
+/** Distance in metres that triggers the "Still there?" confirmation prompt */
+const CONFIRM_DISTANCE_M = 5
+/** Don't re-prompt the same event within this window */
+const CONFIRM_COOLDOWN_MS = 60_000
 
 interface AlertCallbacks {
-  onPolice?: () => void
+  onPolice?:    () => void
+  onNearEvent?: (ev: ReportedEvent) => void
 }
 
-export function useProximityAlerts({ onPolice }: AlertCallbacks = {}) {
-  const events      = useEventStore((s) => s.events)
-  const eventsRef   = useRef(events)
-  const onPoliceRef = useRef(onPolice)
+export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {}) {
+  const events         = useEventStore((s) => s.events)
+  const eventsRef      = useRef(events)
+  const onPoliceRef    = useRef(onPolice)
+  const onNearEventRef = useRef(onNearEvent)
 
-  // Keep refs current without restarting the watcher
-  useEffect(() => { eventsRef.current   = events   }, [events])
-  useEffect(() => { onPoliceRef.current = onPolice }, [onPolice])
+  useEffect(() => { eventsRef.current      = events      }, [events])
+  useEffect(() => { onPoliceRef.current    = onPolice    }, [onPolice])
+  useEffect(() => { onNearEventRef.current = onNearEvent }, [onNearEvent])
 
-  // alerted[eventId] = timestamp of last alert
-  const alertedRef = useRef<Map<string, number>>(new Map())
+  // alertedRef   — last voice-alert timestamp per event id
+  // confirmedRef — last "near" prompt timestamp per event id
+  const alertedRef   = useRef<Map<string, number>>(new Map())
+  const confirmedRef = useRef<Map<string, number>>(new Map())
 
   useEffect(() => {
     if (!navigator.geolocation) return
@@ -36,16 +48,27 @@ export function useProximityAlerts({ onPolice }: AlertCallbacks = {}) {
         const now = Date.now()
 
         for (const ev of eventsRef.current) {
-          const dist      = haversine(lat, lng, ev.lat, ev.lng)
+          const dist = haversine(lat, lng, ev.lat, ev.lng)
+
+          // ── Voice alert ──────────────────────────────────────────────────
           const threshold = ALERT_DISTANCES[ev.type]
-          if (dist > threshold) continue
+          if (dist <= threshold) {
+            const lastAlert = alertedRef.current.get(ev.id) ?? 0
+            if (now - lastAlert >= COOLDOWN_MS) {
+              alertedRef.current.set(ev.id, now)
+              speak(ev.type)
+              if (ev.type === 'police') onPoliceRef.current?.()
+            }
+          }
 
-          const lastAlert = alertedRef.current.get(ev.id) ?? 0
-          if (now - lastAlert < COOLDOWN_MS) continue
-
-          alertedRef.current.set(ev.id, now)
-          speak(ev.type)
-          if (ev.type === 'police') onPoliceRef.current?.()
+          // ── 5 m confirmation prompt ──────────────────────────────────────
+          if (dist <= CONFIRM_DISTANCE_M) {
+            const lastConfirm = confirmedRef.current.get(ev.id) ?? 0
+            if (now - lastConfirm >= CONFIRM_COOLDOWN_MS) {
+              confirmedRef.current.set(ev.id, now)
+              onNearEventRef.current?.(ev)
+            }
+          }
         }
       },
       null,
@@ -53,7 +76,7 @@ export function useProximityAlerts({ onPolice }: AlertCallbacks = {}) {
     )
 
     return () => navigator.geolocation.clearWatch(watchId)
-  }, []) // single watcher for component lifetime
+  }, [])
 }
 
 function speak(type: EventType) {
@@ -62,7 +85,6 @@ function speak(type: EventType) {
   utt.lang   = 'bg-BG'
   utt.rate   = 1.0
   utt.volume = 1.0
-  // Cancel any ongoing speech so the new alert is heard immediately
   window.speechSynthesis.cancel()
   window.speechSynthesis.speak(utt)
 }

@@ -18,6 +18,7 @@ import { FloatingFiltersCard } from '@/components/FloatingFiltersCard'
 import { LoadingOverlay }      from '@/components/LoadingOverlay'
 import { ErrorBanner }         from '@/components/ErrorBanner'
 import { SirenOverlay }        from '@/components/SirenOverlay'
+import { ConfirmEventPrompt }  from '@/components/ConfirmEventPrompt'
 
 import { useEVStore }                              from '@/features/ev/store'
 import { useEVPolling }                            from '@/features/ev/hooks/useEVPolling'
@@ -25,6 +26,7 @@ import { useAutoRefresh }                          from '@/features/ev/hooks/use
 import { applyFilter, sourceCounts, filterCounts } from '@/features/ev/selectors'
 import { useRouteStore }                           from '@/features/route/store'
 import { useEventStore }                           from '@/features/events/store'
+import type { ReportedEvent }                      from '@/features/events/types'
 import { useThemeStore }                           from '@/features/theme/store'
 import { useProximityAlerts }                      from '@/features/alerts/useProximityAlerts'
 
@@ -32,7 +34,8 @@ export function App() {
   const [map, setMap]    = useState<LMap | null>(null)
   const mapRef           = useRef<LMap | null>(null)
   const { trigger }      = useEVPolling()
-  const [siren, setSiren] = useState(false)
+  const [siren,        setSiren]        = useState(false)
+  const [confirmEvent, setConfirmEvent] = useState<ReportedEvent | null>(null)
 
   // Unlock speech synthesis on first user interaction (browser autoplay policy)
   useEffect(() => {
@@ -40,15 +43,16 @@ export function App() {
       const u = new SpeechSynthesisUtterance('')
       u.volume = 0
       window.speechSynthesis.speak(u)
-      document.removeEventListener('touchstart', unlock)
-      document.removeEventListener('click', unlock)
     }
     document.addEventListener('touchstart', unlock, { once: true })
-    document.addEventListener('click', unlock, { once: true })
+    document.addEventListener('click',      unlock, { once: true })
   }, [])
 
-  const handlePolice = useCallback(() => setSiren(true), [])
-  useProximityAlerts({ onPolice: handlePolice })
+  const handlePolice    = useCallback(() => setSiren(true), [])
+  const handleNearEvent = useCallback((ev: ReportedEvent) => setConfirmEvent(ev), [])
+  useProximityAlerts({ onPolice: handlePolice, onNearEvent: handleNearEvent })
+
+  const removeEvent = useEventStore((s) => s.removeEvent)
 
   // ── Theme ──────────────────────────────────────────────────────────────────
   const isDark       = useThemeStore((s) => s.isDark)
@@ -128,6 +132,18 @@ export function App() {
 
       {/* Police siren flash */}
       <SirenOverlay active={siren} onDone={() => setSiren(false)} />
+
+      {/* 5 m proximity confirmation prompt */}
+      {confirmEvent && (
+        <ConfirmEventPrompt
+          event={confirmEvent}
+          onStillThere={() => setConfirmEvent(null)}
+          onRemove={() => {
+            removeEvent(confirmEvent.id)
+            setConfirmEvent(null)
+          }}
+        />
+      )}
     </div>
   )
 }

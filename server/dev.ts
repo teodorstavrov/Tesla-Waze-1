@@ -8,6 +8,7 @@ import cors from 'cors'
 import { validateBboxQuery } from '../api/_lib/utils/validate.js'
 import { aggregateStations } from '../api/_lib/merge/mergeStations.js'
 import { fetchTomTomIncidents } from '../api/_lib/providers/tomtom.js'
+import { eventsStore } from '../api/_lib/eventsStore.js'
 
 const app  = express()
 const PORT = 3001
@@ -53,6 +54,25 @@ app.get('/api/traffic/incidents', async (req, res) => {
     console.error('[dev-api] TomTom error:', String(err))
     res.status(502).json({ incidents: [], error: String(err) })
   }
+})
+
+// ── Events CRUD ────────────────────────────────────────────────────────────
+app.get('/api/events', (_req, res) => {
+  res.json({ events: eventsStore.getAll() })
+})
+
+app.post('/api/events', (req, res) => {
+  const { id, type, lat, lng, timestamp } = req.body ?? {}
+  if (!id || !type || lat == null || lng == null || !timestamp) {
+    res.status(400).json({ error: 'Missing required fields' }); return
+  }
+  eventsStore.add({ id: String(id), type: String(type), lat: Number(lat), lng: Number(lng), timestamp: Number(timestamp) })
+  res.status(201).json({ ok: true })
+})
+
+app.delete('/api/events/:id', (req, res) => {
+  eventsStore.remove(req.params.id)
+  res.json({ ok: true })
 })
 
 app.listen(PORT, () => {
