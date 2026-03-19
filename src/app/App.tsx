@@ -22,7 +22,7 @@ import { ConfirmEventPrompt }  from '@/components/ConfirmEventPrompt'
 import { useEVStore }                              from '@/features/ev/store'
 import { useEVPolling }                            from '@/features/ev/hooks/useEVPolling'
 import { useAutoRefresh }                          from '@/features/ev/hooks/useAutoRefresh'
-import { applyFilter, sourceCounts } from '@/features/ev/selectors'
+import { applyFilter } from '@/features/ev/selectors'
 import { useRouteStore }                           from '@/features/route/store'
 import { useEventStore }                           from '@/features/events/store'
 import type { ReportedEvent }                      from '@/features/events/types'
@@ -64,7 +64,6 @@ export function App() {
   const stations      = useEVStore((s) => s.stations)
   const loading       = useEVStore((s) => s.loading)
   const error         = useEVStore((s) => s.error)
-  const lastResponse  = useEVStore((s) => s.lastResponse)
   const filterMode    = useEVStore((s) => s.filterMode)
   const setError      = useEVStore((s) => s.setError)
 
@@ -73,7 +72,6 @@ export function App() {
   const events = useEventStore((s) => s.events)
 
   // ── Derived ────────────────────────────────────────────────────────────────
-  const counts           = sourceCounts(stations)
   const filteredStations = applyFilter(stations, filterMode)
 
   useAutoRefresh(map, trigger)
@@ -117,7 +115,7 @@ export function App() {
 
       {/* Floating UI */}
       <FloatingTitleCard loading={loading} />
-      <FloatingStatsCard counts={counts} loading={loading} lastResponse={lastResponse} />
+      <FloatingStatsCard stations={filteredStations} loading={loading} />
 
       {/* Controls */}
       <ThemeToggle  isDark={isDark} onToggle={toggleTheme} />
