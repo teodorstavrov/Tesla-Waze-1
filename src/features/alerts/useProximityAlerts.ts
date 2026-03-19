@@ -169,7 +169,7 @@ export function playPoliceSiren() {
     gain.connect(ctx.destination)
 
     const t   = ctx.currentTime
-    const dur = 3.0          // total seconds
+    const dur = 2.0          // total seconds
     const hi  = 960          // Hz — high tone
     const lo  = 770          // Hz — low tone
     const step = 0.45        // seconds per half-cycle

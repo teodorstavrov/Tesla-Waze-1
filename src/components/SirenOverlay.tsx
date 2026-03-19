@@ -15,7 +15,7 @@ export function SirenOverlay({ active, onDone }: Props) {
   useEffect(() => {
     if (active) {
       clearTimeout(timerRef.current)
-      timerRef.current = setTimeout(onDone, 4_000)
+      timerRef.current = setTimeout(onDone, 2_000)
     }
     return () => clearTimeout(timerRef.current)
   }, [active, onDone])
