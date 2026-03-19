@@ -91,10 +91,19 @@ export function ReportButton({ map }: Props) {
 
   return (
     <div className="relative flex flex-col items-center">
+      {/* Backdrop — closes menu when tapping outside */}
+      {open && (
+        <div
+          className="fixed inset-0 z-[999]"
+          onClick={() => setOpen(false)}
+          onTouchEnd={() => setOpen(false)}
+        />
+      )}
+
       {/* 2×2 popup — absolutely positioned above, never shifts the dock */}
       {open && (
         <div
-          className="absolute bottom-full mb-3 glass-card overflow-hidden"
+          className="absolute bottom-full mb-3 glass-card overflow-hidden z-[1001]"
           style={{ width: '192px' }}
         >
           <div className="grid grid-cols-2">

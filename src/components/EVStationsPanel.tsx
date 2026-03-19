@@ -132,17 +132,17 @@ export function EVStationsPanel({ stations, onClose }: Props) {
                 <div className="text-[11px] text-tesla-subtle truncate">
                   {s.operator || (s.isTesla ? 'Tesla' : 'EV')}
                   {s.availablePorts > 0 && (
-                    <span className="text-green-400 ml-1">· {s.availablePorts} свободни</span>
+                    <span className="text-green-400 ml-1">· {s.availablePorts} св.</span>
                   )}
+                </div>
+                <div className="text-[12px] font-semibold mt-0.5" style={{ color: '#f5a623' }}>
+                  {formatDist(s.distanceM)}
                 </div>
               </div>
 
-              {/* Distance + navigate icon */}
+              {/* Ports + navigate icon */}
               <div className="flex items-center gap-2 flex-shrink-0">
                 <div className="text-right">
-                  <div className="text-[15px] font-bold" style={{ color: '#3d9df3' }}>
-                    {formatDist(s.distanceM)}
-                  </div>
                   <div className="text-[11px] text-tesla-subtle">{s.totalPorts} порта</div>
                 </div>
                 <NavIcon />

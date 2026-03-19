@@ -28,6 +28,15 @@ export function BottomDock({ map, stations }: Props) {
 
   return (
     <>
+      {/* Backdrop — closes EV panel when tapping outside */}
+      {evOpen && (
+        <div
+          className="fixed inset-0 z-[998]"
+          onClick={() => setEvOpen(false)}
+          onTouchEnd={() => setEvOpen(false)}
+        />
+      )}
+
       {/* EV panel — sibling to dock so its absolute position is relative to the app root */}
       {evOpen && (
         <EVStationsPanel stations={stations} onClose={() => setEvOpen(false)} />

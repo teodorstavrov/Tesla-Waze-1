@@ -46,6 +46,7 @@ export function MapShell({ isDark, onMapReady, onBoundsChange }: Props) {
       zoomControl:         false,
       attributionControl:  false,
       preferCanvas:        true,
+      closePopupOnClick:   true,
       bounceAtZoomLimits:  false,
       fadeAnimation:       false,
       markerZoomAnimation: true,
