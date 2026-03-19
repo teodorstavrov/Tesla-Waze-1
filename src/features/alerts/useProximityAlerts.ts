@@ -10,7 +10,7 @@
 import { useEffect, useRef } from 'react'
 import { useEventStore }     from '@/features/events/store'
 import { haversine }         from '@/lib/haversine'
-import { ALERT_DISTANCES, ALERT_LABELS_BG, COOLDOWN_MS, POLICE_SIREN_DISTANCE_M } from './config'
+import { ALERT_DISTANCES, ALERT_LABELS_BG, COOLDOWN_MS, POLICE_SIREN_DISTANCE_M, POLICE_CLOSE_DISTANCE_M } from './config'
 import type { EventType }    from '@/features/events/types'
 import type { ReportedEvent } from '@/features/events/types'
 
@@ -56,17 +56,35 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
 
           // ── Police siren + flash at 820 m ────────────────────────────────
           if (ev.type === 'police') {
-            const sirenKey    = `${ev.id}:siren`
-            const wasInside   = insideRef.current.get(sirenKey) ?? false
-            const nowInside   = dist <= POLICE_SIREN_DISTANCE_M
+            const sirenKey  = `${ev.id}:siren`
+            const wasInside = insideRef.current.get(sirenKey) ?? false
+            const nowInside = dist <= POLICE_SIREN_DISTANCE_M
             insideRef.current.set(sirenKey, nowInside)
 
-            if (nowInside && !wasInside) {          // entering zone
+            if (nowInside && !wasInside) {
               const lastSiren = sirenedRef.current.get(ev.id) ?? 0
               if (now - lastSiren >= COOLDOWN_MS) {
                 sirenedRef.current.set(ev.id, now)
                 playPoliceSiren()
                 onPoliceRef.current?.()
+              }
+            }
+          }
+
+          // ── Police close alert at 300 m (siren + flash + voice) ──────────
+          if (ev.type === 'police') {
+            const closeKey    = `${ev.id}:close`
+            const wasInClose  = insideRef.current.get(closeKey) ?? false
+            const nowInClose  = dist <= POLICE_CLOSE_DISTANCE_M
+            insideRef.current.set(closeKey, nowInClose)
+
+            if (nowInClose && !wasInClose) {
+              const lastClose = alertedRef.current.get(`${ev.id}:close`) ?? 0
+              if (now - lastClose >= COOLDOWN_MS) {
+                alertedRef.current.set(`${ev.id}:close`, now)
+                playPoliceSiren()
+                onPoliceRef.current?.()
+                speak('police')
               }
             }
           }
