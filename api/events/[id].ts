@@ -3,7 +3,7 @@
  */
 import { eventsStore } from '../_lib/eventsStore.js'
 
-export default function handler(req: any, res: any): void {
+export default async function handler(req: any, res: any): Promise<void> {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'DELETE, OPTIONS')
 
@@ -17,6 +17,11 @@ export default function handler(req: any, res: any): void {
   const id = req.query?.id as string
   if (!id) { res.status(400).json({ error: 'Missing id' }); return }
 
-  eventsStore.remove(id)
-  res.status(200).json({ ok: true })
+  try {
+    await eventsStore.remove(id)
+    res.status(200).json({ ok: true })
+  } catch (err) {
+    console.error('[events DELETE]', err)
+    res.status(500).json({ error: 'Failed to remove event' })
+  }
 }

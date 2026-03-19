@@ -1,10 +1,16 @@
 /**
- * Shared in-memory event store for Vercel serverless functions.
- * globalThis survives multiple invocations within the same warm Lambda instance,
- * so all handlers (index.ts + [id].ts) share the same array.
+ * Redis-backed event store.
+ * All events are stored in a single Redis hash:
+ *   Key:   tesla-waze:events
+ *   Field: event.id
+ *   Value: JSON string of the event
+ *
+ * This is shared across all Vercel Lambda instances, so every user
+ * always sees the same set of markers.
  */
+import { redis, EVENTS_KEY } from './redis.js'
 
-interface StoredEvent {
+export interface StoredEvent {
   id:        string
   type:      string
   lat:       number
@@ -12,15 +18,18 @@ interface StoredEvent {
   timestamp: number
 }
 
-const g = globalThis as Record<string, unknown>
-if (!g.__eventsStore) g.__eventsStore = [] as StoredEvent[]
-
-const store = () => g.__eventsStore as StoredEvent[]
-
 export const eventsStore = {
-  getAll: (): StoredEvent[]       => store().slice(),
-  add:    (ev: StoredEvent): void => { store().push(ev) },
-  remove: (id: string):     void  => {
-    g.__eventsStore = store().filter((e) => e.id !== id)
+  async getAll(): Promise<StoredEvent[]> {
+    const hash = await redis.hgetall<Record<string, StoredEvent>>(EVENTS_KEY)
+    if (!hash) return []
+    return Object.values(hash)
+  },
+
+  async add(ev: StoredEvent): Promise<void> {
+    await redis.hset(EVENTS_KEY, { [ev.id]: ev })
+  },
+
+  async remove(id: string): Promise<void> {
+    await redis.hdel(EVENTS_KEY, id)
   },
 }

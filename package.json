@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@types/leaflet.markercluster": "^1.5.6",
+    "@upstash/redis": "^1.37.0",
     "dotenv": "^17.3.1",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
