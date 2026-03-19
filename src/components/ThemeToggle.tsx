@@ -8,7 +8,7 @@ interface Props {
 
 export function ThemeToggle({ isDark, onToggle }: Props) {
   return (
-    <div className="absolute top-4 right-4 z-[1000]">
+    <div className="absolute left-4 bottom-56 z-[1000]">
       <button
         onClick={onToggle}
         aria-label={isDark ? 'Switch to day mode' : 'Switch to night mode'}
