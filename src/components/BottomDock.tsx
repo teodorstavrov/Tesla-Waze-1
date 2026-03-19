@@ -28,7 +28,6 @@ export function BottomDock({ map, stations }: Props) {
 
   return (
     <>
-      {/* Backdrop — closes EV panel when tapping outside */}
       {evOpen && (
         <div
           className="fixed inset-0 z-[998]"
@@ -37,59 +36,85 @@ export function BottomDock({ map, stations }: Props) {
         />
       )}
 
-      {/* EV panel — sibling to dock so its absolute position is relative to the app root */}
       {evOpen && (
         <EVStationsPanel stations={stations} onClose={() => setEvOpen(false)} />
       )}
 
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-2">
-      {/* Cancel navigation strip — only when navigating */}
-      {route && (
-        <button
-          onClick={cancelNav}
-          onTouchEnd={(e) => e.stopPropagation()}
-          className="glass-card flex items-center gap-2 px-4 h-10
-                     active:scale-95 transition-transform duration-100 select-none"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M2 2l10 10M12 2L2 12" stroke="#e31937" strokeWidth="1.8" strokeLinecap="round"/>
-          </svg>
-          <span className="text-[12px] font-semibold text-tesla-text">Спри навигацията</span>
-        </button>
-      )}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-3">
+        {/* Cancel navigation strip */}
+        {route && (
+          <button
+            onClick={cancelNav}
+            onTouchEnd={(e) => e.stopPropagation()}
+            className="glass-card flex items-center gap-2 px-5 h-10
+                       active:scale-95 transition-transform duration-100 select-none"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M2 2l10 10M12 2L2 12" stroke="#e31937" strokeWidth="1.8" strokeLinecap="round"/>
+            </svg>
+            <span className="text-[12px] font-semibold text-tesla-text">Спри навигацията</span>
+          </button>
+        )}
 
-      {/* Two main buttons */}
-      <div className="flex items-end gap-3">
-        <ReportButton map={map} />
+        {/* Two main buttons */}
+        <div className="flex items-end gap-4">
+          <ReportButton map={map} />
 
-        {/* EV stations button */}
-        <div className="flex flex-col items-center">
+          {/* EV stations button */}
           <button
             onClick={() => setEvOpen((o) => !o)}
             onTouchEnd={(e) => e.stopPropagation()}
             aria-label="Зарядни станции"
-            title="Зарядни станции"
-            className={`w-16 h-16 glass-card flex flex-col items-center justify-center gap-1
-                        active:scale-95 transition-transform duration-100 select-none
-                        ${evOpen ? 'bg-tesla-surface' : ''}`}
+            style={{
+              width: 76, height: 76,
+              borderRadius: 20,
+              background: evOpen
+                ? 'linear-gradient(145deg, #1a3a5c, #0f2a45)'
+                : 'linear-gradient(145deg, #0f3460, #1a6bb5)',
+              boxShadow: evOpen
+                ? '0 2px 12px rgba(61,157,243,0.25)'
+                : '0 4px 20px rgba(61,157,243,0.45)',
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: 5,
+              border: '1.5px solid rgba(61,157,243,0.4)',
+              transition: 'all 0.15s ease',
+              cursor: 'pointer', userSelect: 'none',
+            }}
           >
-            <EVIcon active={evOpen} />
-            <span className="text-[10px] font-semibold text-tesla-subtle">Зарядни</span>
+            <EVIcon />
+            <span style={{
+              fontSize: 10, fontWeight: 700, letterSpacing: '0.02em',
+              color: '#7ec8f7',
+            }}>
+              Зарядни
+            </span>
           </button>
         </div>
       </div>
-    </div>
     </>
   )
 }
 
-function EVIcon({ active }: { active: boolean }) {
-  const c = active ? '#3d9df3' : '#3d9df3'
+function EVIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-      <rect x="2" y="7" width="17" height="11" rx="2.5" stroke={c} strokeWidth="1.8"/>
-      <path d="M19 10.5v3" stroke={c} strokeWidth="2.5" strokeLinecap="round"/>
-      <path d="M11 11l-1.5 3.5h3L11 18" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+      <defs>
+        <linearGradient id="ev-bolt" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#7ec8f7"/>
+          <stop offset="100%" stopColor="#3d9df3"/>
+        </linearGradient>
+        <linearGradient id="ev-body" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#5bb8f5"/>
+          <stop offset="100%" stopColor="#2980d4"/>
+        </linearGradient>
+      </defs>
+      {/* Battery body */}
+      <rect x="2" y="9" width="21" height="13" rx="3.5" stroke="url(#ev-body)" strokeWidth="2" fill="rgba(61,157,243,0.12)"/>
+      {/* Battery tip */}
+      <path d="M23 13v5" stroke="#5bb8f5" strokeWidth="3" strokeLinecap="round"/>
+      {/* Lightning bolt */}
+      <path d="M14 13.5l-2 4h3.5l-1.5 4.5 5.5-6.5H16l1.5-2z"
+            fill="url(#ev-bolt)"/>
     </svg>
   )
 }

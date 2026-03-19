@@ -132,18 +132,33 @@ export function ReportButton({ map }: Props) {
         onTouchEnd={(e) => e.stopPropagation()}
         aria-label="Сигнал"
         title={syncError ? 'Backend недостъпен' : 'Добави сигнал'}
-        className={`relative w-16 h-16 glass-card flex flex-col items-center justify-center gap-1
-                    active:scale-95 transition-transform duration-100 select-none
-                    ${open ? 'bg-tesla-surface' : ''}`}
+        style={{
+          position: 'relative',
+          width: 76, height: 76,
+          borderRadius: 20,
+          background: open
+            ? 'linear-gradient(145deg, #3a1a00, #5a2800)'
+            : 'linear-gradient(145deg, #b85000, #e07010)',
+          boxShadow: open
+            ? '0 2px 12px rgba(245,166,35,0.2)'
+            : '0 4px 20px rgba(245,166,35,0.5)',
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', gap: 5,
+          border: '1.5px solid rgba(245,166,35,0.5)',
+          transition: 'all 0.15s ease',
+          cursor: 'pointer', userSelect: 'none',
+        }}
       >
-        {open
-          ? <CloseIcon />
-          : <SignalIcon />
-        }
-        <span className="text-[10px] font-semibold text-tesla-subtle">Сигнал</span>
+        {open ? <CloseIcon /> : <SignalIcon />}
+        <span style={{
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.02em',
+          color: '#ffd080',
+        }}>
+          Сигнал
+        </span>
         {syncError && (
           <span style={{
-            position: 'absolute', top: 6, right: 6,
+            position: 'absolute', top: 7, right: 7,
             width: 9, height: 9, borderRadius: '50%',
             background: '#e31937', border: '2px solid #0a0a0a',
           }} />
@@ -155,17 +170,25 @@ export function ReportButton({ map }: Props) {
 
 function SignalIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="12" r="10" stroke="#f5a623" strokeWidth="1.8"/>
-      <path d="M12 7v6M12 15.5v.5" stroke="#f5a623" strokeWidth="2" strokeLinecap="round"/>
+    <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+      <defs>
+        <linearGradient id="sig-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#ffe066"/>
+          <stop offset="100%" stopColor="#f5a623"/>
+        </linearGradient>
+      </defs>
+      <circle cx="15" cy="15" r="12" stroke="url(#sig-grad)" strokeWidth="2.2"
+              fill="rgba(245,166,35,0.12)"/>
+      <path d="M15 9v8" stroke="url(#sig-grad)" strokeWidth="2.6" strokeLinecap="round"/>
+      <circle cx="15" cy="20.5" r="1.4" fill="#f5a623"/>
     </svg>
   )
 }
 
 function CloseIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <path d="M4 4l12 12M16 4L4 16" stroke="#f5a623" strokeWidth="1.8" strokeLinecap="round"/>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path d="M5 5l14 14M19 5L5 19" stroke="#ffd080" strokeWidth="2.2" strokeLinecap="round"/>
     </svg>
   )
 }
