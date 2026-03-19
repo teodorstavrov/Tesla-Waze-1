@@ -53,7 +53,50 @@ const SVG_PATHS: Record<EventType, string> = {
     <path d="M11 7l4-1.5v5L11 9V7z" stroke="white" stroke-width="1.2" stroke-linejoin="round"/>`,
 }
 
+function policeIcon() {
+  return L.divIcon({
+    html: `
+      <svg width="42" height="54" viewBox="0 0 42 54" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="pf" x="-30%" y="-20%" width="160%" height="150%">
+            <feDropShadow dx="0" dy="3" stdDeviation="3" flood-opacity="0.55"/>
+          </filter>
+        </defs>
+        <!-- Pin teardrop -->
+        <path d="M21 1C10.507 1 2 9.507 2 20c0 7.5 4.1 14.05 10.2 17.5L21 53 31.8 37.5C37.9 34.05 40 27.5 40 20 40 9.507 31.493 1 21 1z"
+              fill="#3D8FDB" filter="url(#pf)"/>
+        <!-- White inner ring -->
+        <circle cx="21" cy="20" r="15.5" fill="white" opacity="0.15"/>
+        <!-- Face (skin) -->
+        <circle cx="21" cy="23" r="10.5" fill="#D4956A"/>
+        <!-- Hat brim -->
+        <rect x="9" y="15" width="24" height="4" rx="2" fill="#1A5CB0"/>
+        <!-- Hat top -->
+        <rect x="12.5" y="7" width="17" height="9.5" rx="2.5" fill="#1A5CB0"/>
+        <!-- Hat visor shadow -->
+        <rect x="9" y="17.5" width="24" height="1.5" rx="0.75" fill="#0F3D8A" opacity="0.5"/>
+        <!-- Badge -->
+        <circle cx="21" cy="11.5" r="3" fill="white"/>
+        <circle cx="21" cy="11.5" r="1.2" fill="#FFD700"/>
+        <!-- Eyes -->
+        <circle cx="17.5" cy="23.5" r="1.4" fill="#3D2B1A"/>
+        <circle cx="24.5" cy="23.5" r="1.4" fill="#3D2B1A"/>
+        <!-- Eye shine -->
+        <circle cx="18" cy="23" r="0.5" fill="white"/>
+        <circle cx="25" cy="23" r="0.5" fill="white"/>
+        <!-- Smile -->
+        <path d="M17 27.5 Q21 31 25 27.5" stroke="#3D2B1A" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+      </svg>`,
+    className:  '',
+    iconSize:   [42, 54],
+    iconAnchor: [21, 54],
+    popupAnchor:[0, -50],
+  })
+}
+
 function eventIcon(type: EventType) {
+  if (type === 'police') return policeIcon()
+
   const c = COLOURS[type]
   return L.divIcon({
     html: `
