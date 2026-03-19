@@ -24,6 +24,7 @@ import { useEVPolling }                            from '@/features/ev/hooks/use
 import { useAutoRefresh }                          from '@/features/ev/hooks/useAutoRefresh'
 import { applyFilter } from '@/features/ev/selectors'
 import { useRouteStore }                           from '@/features/route/store'
+import { useRoute }                                from '@/features/route/hooks/useRoute'
 import { useEventStore }                           from '@/features/events/store'
 import type { ReportedEvent }                      from '@/features/events/types'
 import { useThemeStore }                           from '@/features/theme/store'
@@ -53,6 +54,27 @@ export function App() {
   const handlePolice    = useCallback(() => setSiren(true), [])
   const handleNearEvent = useCallback((ev: ReportedEvent) => setConfirmEvent(ev), [])
   useProximityAlerts({ onPolice: handlePolice, onNearEvent: handleNearEvent })
+
+  // ── Popup Navigate button ───────────────────────────────────────────────────
+  const { calculate } = useRoute()
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { lat, lng, name } = (e as CustomEvent<{ lat: number; lng: number; name: string }>).detail
+      navigator.geolocation.getCurrentPosition(
+        (pos) => calculate(
+          { lat: pos.coords.latitude, lng: pos.coords.longitude, label: 'Моята локация' },
+          { lat, lng, label: name },
+        ),
+        () => calculate(
+          { lat: mapRef.current?.getCenter().lat ?? lat, lng: mapRef.current?.getCenter().lng ?? lng, label: 'Моята локация' },
+          { lat, lng, label: name },
+        ),
+        { timeout: 4_000, maximumAge: 10_000 },
+      )
+    }
+    window.addEventListener('ev:navigate', handler)
+    return () => window.removeEventListener('ev:navigate', handler)
+  }, [calculate])
 
   const removeEvent = useEventStore((s) => s.removeEvent)
 

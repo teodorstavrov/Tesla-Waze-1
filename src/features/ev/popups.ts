@@ -29,17 +29,14 @@ function connectorColor(type: string): string {
   return CONNECTOR_COLORS[type] ?? '#8a8a8a'
 }
 
-function navigateUrl(lat: number, lng: number): string {
-  // Google Maps directions from current location — works in Tesla Chromium browser
-  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`
-}
 
 export function buildPopupHTML(station: EVStation): string {
   const name   = stationDisplayName(station)
   const power  = maxPowerKw(station)
   const avail  = availabilityLabel(station)
   const source = SOURCE_LABELS[station.source] ?? station.source.toUpperCase()
-  const navUrl = navigateUrl(station.position.lat, station.position.lng)
+  const lat    = station.position.lat
+  const lng    = station.position.lng
 
   const teslaBadge = station.isTesla
     ? `<span style="background:#e31937;color:white;font-size:10px;font-weight:700;
@@ -144,28 +141,29 @@ export function buildPopupHTML(station: EVStation): string {
         })();
       </script>` : ''}
 
-      <!-- Navigate button — full-width, 48px, easy to tap -->
-      <a href="${navUrl}" target="_blank" rel="noopener"
+      <!-- Navigate button — dispatches custom event handled by App.tsx -->
+      <button
+         onclick="window.dispatchEvent(new CustomEvent('ev:navigate',{detail:{lat:${lat},lng:${lng},name:'${name.replace(/'/g, "\\'")}'}}))"
+         ontouchstart="this.style.background='rgba(61,157,243,0.22)'"
+         ontouchend="this.style.background='rgba(61,157,243,0.12)'"
          style="
            display:flex;align-items:center;justify-content:center;gap:8px;
-           height:48px;
+           width:100%;height:48px;
            background:rgba(61,157,243,0.12);
-           border-top:1px solid #222;
+           border:none;border-top:1px solid #222;
            border-radius:0 0 14px 14px;
            color:#3d9df3;
            font-size:14px;font-weight:600;
-           text-decoration:none;
+           cursor:pointer;
            -webkit-tap-highlight-color:transparent;
          "
-         ontouchstart="this.style.background='rgba(61,157,243,0.22)'"
-         ontouchend="this.style.background='rgba(61,157,243,0.12)'"
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <path d="M8 1L15 8L8 15" stroke="#3d9df3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M1 8h14" stroke="#3d9df3" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M2 14L8 2l6 12-6-3-6 3z" stroke="#3d9df3" stroke-width="1.8"
+                stroke-linejoin="round" fill="none"/>
         </svg>
-        Navigate
-      </a>
+        → Navigate
+      </button>
     </div>
   `
 }
