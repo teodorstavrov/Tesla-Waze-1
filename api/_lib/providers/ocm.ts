@@ -68,6 +68,7 @@ export async function fetchOCMStations(
     output:       'json',
     compact:      'true',
     verbose:      'false',
+    key:          apiKey,
   })
 
   const url = `${OCM_BASE}?${params}`
