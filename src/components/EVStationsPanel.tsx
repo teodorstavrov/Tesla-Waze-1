@@ -61,7 +61,7 @@ export function EVStationsPanel({ stations, onClose }: Props) {
 
   return (
     <div
-      className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[1000]"
+      className="absolute bottom-28 left-1/2 -translate-x-1/2 z-[999]"
       style={{ width: 'min(400px, calc(100vw - 32px))' }}
     >
       <div className="glass-card overflow-hidden">
@@ -140,7 +140,7 @@ export function EVStationsPanel({ stations, onClose }: Props) {
               {/* Distance + navigate icon */}
               <div className="flex items-center gap-2 flex-shrink-0">
                 <div className="text-right">
-                  <div className="text-[13px] font-semibold text-tesla-text">
+                  <div className="text-[15px] font-bold" style={{ color: '#3d9df3' }}>
                     {formatDist(s.distanceM)}
                   </div>
                   <div className="text-[11px] text-tesla-subtle">{s.totalPorts} порта</div>

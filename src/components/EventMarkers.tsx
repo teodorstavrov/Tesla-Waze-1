@@ -28,10 +28,29 @@ const LABELS: Record<EventType, string> = {
 }
 
 const SVG_PATHS: Record<EventType, string> = {
-  police:   '<rect x="3" y="5" width="10" height="7" rx="1.5" stroke="white" stroke-width="1.3"/><path d="M5 5V4a3 3 0 0 1 6 0v1" stroke="white" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="8.5" r="1.5" stroke="white" stroke-width="1.1"/>',
-  danger:   '<path d="M8 2L14.5 13H1.5L8 2Z" stroke="white" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6v3M8 10.5v.5" stroke="white" stroke-width="1.3" stroke-linecap="round"/>',
-  accident: '<circle cx="8" cy="8" r="6" stroke="white" stroke-width="1.3"/><path d="M8 4.5v4M8 10v.5" stroke="white" stroke-width="1.3" stroke-linecap="round"/>',
-  camera:   '<rect x="1" y="4" width="9" height="7" rx="1.5" stroke="white" stroke-width="1.3"/><path d="M10 6.5l4-1.5v5l-4-1.5V6.5Z" stroke="white" stroke-width="1.3" stroke-linejoin="round"/><circle cx="5.5" cy="7.5" r="1.5" stroke="white" stroke-width="1.1"/>',
+  // Officer head + police cap with badge
+  police: `
+    <circle cx="8" cy="11" r="3.5" stroke="white" stroke-width="1.3"/>
+    <line x1="3.5" y1="7.8" x2="12.5" y2="7.8" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+    <rect x="5" y="4" width="6" height="4.2" rx="1" stroke="white" stroke-width="1.2"/>
+    <circle cx="8" cy="5.8" r="0.9" fill="white"/>`,
+  // Triangle with bold exclamation
+  danger: `
+    <path d="M8 1.5L15 14.5H1L8 1.5Z" stroke="white" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M8 5.5v4.5" stroke="white" stroke-width="1.7" stroke-linecap="round"/>
+    <circle cx="8" cy="12.2" r="0.9" fill="white"/>`,
+  // Shield with exclamation (distinct from danger)
+  accident: `
+    <path d="M8 1.5l5.5 3v4.5C13.5 12.5 11 14.5 8 15.5 5 14.5 2.5 12.5 2.5 9V4.5z" stroke="white" stroke-width="1.3" stroke-linejoin="round"/>
+    <path d="M8 5.5v4" stroke="white" stroke-width="1.7" stroke-linecap="round"/>
+    <circle cx="8" cy="11.5" r="0.9" fill="white"/>`,
+  // Camera body + lens + top bump
+  camera: `
+    <rect x="1" y="5" width="10" height="7.5" rx="1.5" stroke="white" stroke-width="1.3"/>
+    <circle cx="6" cy="8.7" r="2.3" stroke="white" stroke-width="1.2"/>
+    <circle cx="6" cy="8.7" r="0.8" fill="white"/>
+    <rect x="3.5" y="3" width="4" height="2.2" rx="0.8" fill="white"/>
+    <path d="M11 7l4-1.5v5L11 9V7z" stroke="white" stroke-width="1.2" stroke-linejoin="round"/>`,
 }
 
 function eventIcon(type: EventType) {

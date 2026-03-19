@@ -34,7 +34,7 @@ const teslaSVG = `
   <rect x="16" y="13" width="4" height="13" fill="white" rx="1"/>
 </svg>`
 
-// ── Generic EV station marker — blue teardrop ─────────────────────────────────
+// ── Generic EV station marker — orange teardrop ───────────────────────────────
 const evSVG = `
 <svg width="32" height="42" viewBox="0 0 32 42" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -43,7 +43,7 @@ const evSVG = `
     </filter>
   </defs>
   <path d="M16 0C7.163 0 0 7.163 0 16c0 12 16 26 16 26S32 28 32 16C32 7.163 24.837 0 16 0z"
-        fill="#3d9df3" filter="url(#ev)"/>
+        fill="#f5a623" filter="url(#ev)"/>
   <!-- Lightning bolt -->
   <path d="M18.5 8 L12 18h5l-1.5 8 7-11h-5z" fill="white"/>
 </svg>`
