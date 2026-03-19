@@ -121,7 +121,7 @@ export function RoutePanel() {
   }
 
   return (
-    <div className="absolute left-4 top-4 z-[1000]" style={{ width: 'min(300px, calc(100vw - 180px))' }}>
+    <div className="absolute left-4 z-[1000]" style={{ top: '108px', width: 'min(300px, calc(100vw - 180px))' }}>
       <div className="glass-card overflow-visible">
         {/* Header */}
         <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5 border-b border-tesla-border">
