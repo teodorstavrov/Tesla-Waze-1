@@ -27,7 +27,7 @@ import { useRouteStore }                           from '@/features/route/store'
 import { useEventStore }                           from '@/features/events/store'
 import type { ReportedEvent }                      from '@/features/events/types'
 import { useThemeStore }                           from '@/features/theme/store'
-import { useProximityAlerts }                      from '@/features/alerts/useProximityAlerts'
+import { useProximityAlerts, unlockAudio } from '@/features/alerts/useProximityAlerts'
 
 export function App() {
   const [map, setMap]    = useState<LMap | null>(null)
@@ -36,12 +36,15 @@ export function App() {
   const [siren,        setSiren]        = useState(false)
   const [confirmEvent, setConfirmEvent] = useState<ReportedEvent | null>(null)
 
-  // Unlock speech synthesis on first user interaction (browser autoplay policy)
+  // Unlock speech synthesis + AudioContext on first user interaction
   useEffect(() => {
     const unlock = () => {
+      // Speech synthesis unlock
       const u = new SpeechSynthesisUtterance('')
       u.volume = 0
       window.speechSynthesis.speak(u)
+      // AudioContext warm-up (resume so it's ready for siren)
+      unlockAudio()
     }
     document.addEventListener('touchstart', unlock, { once: true })
     document.addEventListener('click',      unlock, { once: true })

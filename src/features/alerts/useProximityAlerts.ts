@@ -57,7 +57,10 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
             if (now - lastAlert >= COOLDOWN_MS) {
               alertedRef.current.set(ev.id, now)
               speak(ev.type)
-              if (ev.type === 'police') onPoliceRef.current?.()
+              if (ev.type === 'police') {
+                playPoliceSiren()
+                onPoliceRef.current?.()
+              }
             }
           }
 
@@ -87,4 +90,66 @@ function speak(type: EventType) {
   utt.volume = 1.0
   window.speechSynthesis.cancel()
   window.speechSynthesis.speak(utt)
+}
+
+/** Police siren: two-tone sweep 770 Hz ↔ 960 Hz, 3 cycles, ~3 s */
+let _audioCtx: AudioContext | null = null
+
+function getAudioCtx(): AudioContext | null {
+  try {
+    if (!_audioCtx || _audioCtx.state === 'closed') {
+      _audioCtx = new AudioContext()
+    }
+    return _audioCtx
+  } catch {
+    return null
+  }
+}
+
+/** Call once on first user gesture to unlock the AudioContext */
+export function unlockAudio() {
+  const ctx = getAudioCtx()
+  if (!ctx) return
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+}
+
+export function playPoliceSiren() {
+  const ctx = getAudioCtx()
+  if (!ctx) return
+
+  const resume = () => {
+    const osc  = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+
+    const t   = ctx.currentTime
+    const dur = 3.0          // total seconds
+    const hi  = 960          // Hz — high tone
+    const lo  = 770          // Hz — low tone
+    const step = 0.45        // seconds per half-cycle
+
+    // Ramp between hi ↔ lo for 3 full cycles
+    osc.frequency.setValueAtTime(hi, t)
+    for (let i = 0; i < Math.floor(dur / step); i++) {
+      osc.frequency.linearRampToValueAtTime(
+        i % 2 === 0 ? lo : hi,
+        t + (i + 1) * step,
+      )
+    }
+
+    gain.gain.setValueAtTime(0.35, t)
+    gain.gain.setValueAtTime(0.35, t + dur - 0.3)
+    gain.gain.linearRampToValueAtTime(0, t + dur)
+
+    osc.start(t)
+    osc.stop(t + dur)
+    osc.onended = () => { try { osc.disconnect() } catch { /* ignore */ } }
+  }
+
+  if (ctx.state === 'suspended') {
+    ctx.resume().then(resume).catch(() => { /* blocked by browser */ })
+  } else {
+    resume()
+  }
 }

@@ -2,7 +2,7 @@ import type { EventType } from '@/features/events/types'
 
 /** Distance in metres at which each event type triggers a voice alert */
 export const ALERT_DISTANCES: Record<EventType, number> = {
-  police:   800,
+  police:   820,
   camera:   500,
   accident: 400,
   danger:   300,
