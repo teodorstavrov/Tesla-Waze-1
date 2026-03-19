@@ -60,6 +60,7 @@ const EVENT_CONFIG: Record<EventType, { label: string; colour: string; icon: JSX
 export function ReportButton({ map }: Props) {
   const [open, setOpen] = useState(false)
   const addEvent        = useEventStore((s) => s.addEvent)
+  const syncError       = useEventStore((s) => s.syncError)
 
   const report = useCallback((type: EventType) => {
     setOpen(false)
@@ -104,16 +105,22 @@ export function ReportButton({ map }: Props) {
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label="Report event"
-        title="Report event"
+        title={syncError ? 'Backend unavailable — markers will not persist' : 'Report event'}
         className={`w-14 h-14 glass-card flex items-center justify-center
                     active:scale-95 transition-transform duration-100 select-none
                     ${open ? 'bg-tesla-surface' : ''}`}
         onTouchEnd={(e) => e.stopPropagation()}
       >
-        {open
-          ? <CloseIcon />
-          : <PlusIcon />
-        }
+        {open ? <CloseIcon /> : <PlusIcon />}
+        {syncError && (
+          <span
+            style={{
+              position: 'absolute', top: 6, right: 6,
+              width: 10, height: 10, borderRadius: '50%',
+              background: '#e31937', border: '2px solid #0a0a0a',
+            }}
+          />
+        )}
       </button>
     </div>
   )
