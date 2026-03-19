@@ -81,7 +81,7 @@ export function ReportButton({ map }: Props) {
   }, [map, addEvent])
 
   return (
-    <div className="absolute left-4 bottom-56 z-[1000]">
+    <div className="relative">
       {/* Popup menu — appears above the button */}
       {open && (
         <div className="glass-card mb-2 overflow-hidden" style={{ width: '140px' }}>

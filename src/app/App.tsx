@@ -7,14 +7,13 @@ import { EventMarkers }        from '@/components/EventMarkers'
 import { RouteLayer }          from '@/components/RouteLayer'
 import { HeadingArrow }        from '@/components/HeadingArrow'
 import { RoutePanel }          from '@/components/RoutePanel'
-import { ReportButton }        from '@/components/ReportButton'
+import { BottomDock }          from '@/components/BottomDock'
 import { ThemeToggle }         from '@/components/ThemeToggle'
 import { ZoomControls }        from '@/components/ZoomControls'
 import { LocationButton }      from '@/components/LocationButton'
 import { SearchBar }           from '@/components/SearchBar'
 import { FloatingTitleCard }   from '@/components/FloatingTitleCard'
 import { FloatingStatsCard }   from '@/components/FloatingStatsCard'
-import { FloatingFiltersCard } from '@/components/FloatingFiltersCard'
 import { LoadingOverlay }      from '@/components/LoadingOverlay'
 import { ErrorBanner }         from '@/components/ErrorBanner'
 import { SirenOverlay }        from '@/components/SirenOverlay'
@@ -23,7 +22,7 @@ import { ConfirmEventPrompt }  from '@/components/ConfirmEventPrompt'
 import { useEVStore }                              from '@/features/ev/store'
 import { useEVPolling }                            from '@/features/ev/hooks/useEVPolling'
 import { useAutoRefresh }                          from '@/features/ev/hooks/useAutoRefresh'
-import { applyFilter, sourceCounts, filterCounts } from '@/features/ev/selectors'
+import { applyFilter, sourceCounts } from '@/features/ev/selectors'
 import { useRouteStore }                           from '@/features/route/store'
 import { useEventStore }                           from '@/features/events/store'
 import type { ReportedEvent }                      from '@/features/events/types'
@@ -62,9 +61,8 @@ export function App() {
   const stations      = useEVStore((s) => s.stations)
   const loading       = useEVStore((s) => s.loading)
   const error         = useEVStore((s) => s.error)
-  const filterMode    = useEVStore((s) => s.filterMode)
   const lastResponse  = useEVStore((s) => s.lastResponse)
-  const setFilterMode = useEVStore((s) => s.setFilterMode)
+  const filterMode    = useEVStore((s) => s.filterMode)
   const setError      = useEVStore((s) => s.setError)
 
   // ── Route & Events ─────────────────────────────────────────────────────────
@@ -73,7 +71,6 @@ export function App() {
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const counts           = sourceCounts(stations)
-  const fCounts          = filterCounts(stations)
   const filteredStations = applyFilter(stations, filterMode)
 
   useAutoRefresh(map, trigger)
@@ -118,13 +115,14 @@ export function App() {
       {/* Floating UI */}
       <FloatingTitleCard loading={loading} />
       <FloatingStatsCard counts={counts} loading={loading} lastResponse={lastResponse} />
-      <FloatingFiltersCard filterMode={filterMode} onFilterChange={setFilterMode} stationCounts={fCounts} />
 
       {/* Controls */}
       <ThemeToggle  isDark={isDark} onToggle={toggleTheme} />
-      <ReportButton map={map} />
       <LocationButton map={map} />
       <ZoomControls   map={map} />
+
+      {/* Bottom dock: Signal button + EV stations button */}
+      <BottomDock map={map} stations={filteredStations} />
 
       {/* Status */}
       <LoadingOverlay visible={loading && stations.length === 0} />
