@@ -8,7 +8,7 @@ interface ThemeState {
 const saved = localStorage.getItem('mapTheme')
 
 export const useThemeStore = create<ThemeState>((set) => ({
-  isDark: saved !== 'light',   // default dark
+  isDark: saved === 'dark',    // default light
   toggle: () => set((s) => {
     const next = !s.isDark
     localStorage.setItem('mapTheme', next ? 'dark' : 'light')
