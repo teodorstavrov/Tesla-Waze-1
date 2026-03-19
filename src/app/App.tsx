@@ -5,6 +5,7 @@ import { MapShell }            from '@/components/MapShell'
 import { EVMarkers }           from '@/components/EVMarkers'
 import { IncidentMarkers }     from '@/components/IncidentMarkers'
 import { RouteLayer }          from '@/components/RouteLayer'
+import { HeadingArrow }        from '@/components/HeadingArrow'
 import { RoutePanel }          from '@/components/RoutePanel'
 import { ZoomControls }        from '@/components/ZoomControls'
 import { LocationButton }      from '@/components/LocationButton'
@@ -91,6 +92,9 @@ export function App() {
 
       {/* Route */}
       <RouteLayer map={map} route={route} />
+
+      {/* Live position + heading arrow */}
+      <HeadingArrow map={map} />
       <RoutePanel />
 
       {/* Search bar — top center */}

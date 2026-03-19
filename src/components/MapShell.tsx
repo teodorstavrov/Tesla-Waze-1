@@ -1,6 +1,7 @@
 /**
  * MapShell — owns the Leaflet map instance lifecycle.
- * Tesla browser optimisations applied here (canvas renderer, touch tap, no bounce).
+ * On first load: centers on user's GPS position (falls back to Sofia).
+ * Tesla browser optimisations: canvas renderer, no bounce, no fade.
  */
 import { useEffect, useRef, useCallback } from 'react'
 import {
@@ -33,38 +34,53 @@ export function MapShell({ onMapReady, onBoundsChange }: Props) {
     if (readyRef.current || !containerRef.current) return
     readyRef.current = true
 
+    // Start with Sofia, then immediately try to get real location
     const map = L.map(containerRef.current, {
-      center:    SOFIA_CENTER,
-      zoom:      DEFAULT_ZOOM,
-      minZoom:   MIN_ZOOM,
-      maxZoom:   MAX_ZOOM,
+      center:   SOFIA_CENTER,
+      zoom:     DEFAULT_ZOOM,
+      minZoom:  MIN_ZOOM,
+      maxZoom:  MAX_ZOOM,
 
-      // ── Tesla browser optimisations ──────────────────────────────
-      zoomControl:          false,   // custom controls below
-      attributionControl:   false,
-      preferCanvas:         true,    // Canvas > SVG on low-power SoC
-      bounceAtZoomLimits:   false,   // no bounce animation (saves CPU)
-      fadeAnimation:        false,   // no tile fade (saves paint cycles)
-      markerZoomAnimation:  true,
-      zoomAnimation:        true,
-      inertia:              true,    // smooth pan feel
-      inertiaDeceleration:  2000,
-      worldCopyJump:        false,
+      zoomControl:         false,
+      attributionControl:  false,
+      preferCanvas:        true,
+      bounceAtZoomLimits:  false,
+      fadeAnimation:       false,
+      markerZoomAnimation: true,
+      zoomAnimation:       true,
+      inertia:             true,
+      inertiaDeceleration: 2000,
+      worldCopyJump:       false,
     })
 
-    // Dark OSM tiles — retina for Tesla's HiDPI screen
     L.tileLayer(OSM_TILE_URL, {
       attribution: OSM_ATTRIBUTION,
-      maxZoom:      MAX_ZOOM,
+      maxZoom:     MAX_ZOOM,
       detectRetina: true,
-      keepBuffer:   2,              // pre-load 2 tile rows around viewport
+      keepBuffer:  2,
     }).addTo(map)
 
-    // Minimal attribution — bottom-right, dark-themed via CSS
     L.control.attribution({ prefix: false, position: 'bottomright' }).addTo(map)
 
     mapRef.current = map
-    onMapReady(map)
+
+    // Try geolocation before firing onMapReady so the first station
+    // fetch already uses the correct viewport
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          map.setView([pos.coords.latitude, pos.coords.longitude], DEFAULT_ZOOM, { animate: false })
+          onMapReady(map)
+        },
+        () => {
+          // Permission denied or timeout — use Sofia
+          onMapReady(map)
+        },
+        { timeout: 5_000, maximumAge: 60_000, enableHighAccuracy: false },
+      )
+    } else {
+      onMapReady(map)
+    }
 
     map.on('moveend zoomend', () => handleBoundsChange(map))
 
@@ -84,7 +100,6 @@ export function MapShell({ onMapReady, onBoundsChange }: Props) {
       ref={containerRef}
       className="absolute inset-0 z-0"
       aria-label="EV charging map"
-      // Prevent browser default touch actions interfering with map pan
       style={{ touchAction: 'none' }}
     />
   )
