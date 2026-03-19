@@ -17,8 +17,9 @@ export default async function handler(req: any, res: any): Promise<void> {
       res.setHeader('Cache-Control', 'no-store')
       res.status(200).json({ events })
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
       console.error('[events GET]', err)
-      res.status(500).json({ error: 'Failed to load events' })
+      res.status(500).json({ error: 'Failed to load events', detail: msg })
     }
     return
   }
