@@ -10,7 +10,7 @@
 import { useEffect, useRef } from 'react'
 import { useEventStore }     from '@/features/events/store'
 import { haversine }         from '@/lib/haversine'
-import { ALERT_DISTANCES, ALERT_LABELS_BG, COOLDOWN_MS } from './config'
+import { ALERT_DISTANCES, ALERT_LABELS_BG, COOLDOWN_MS, POLICE_SIREN_DISTANCE_M } from './config'
 import type { EventType }    from '@/features/events/types'
 import type { ReportedEvent } from '@/features/events/types'
 
@@ -35,8 +35,10 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
   useEffect(() => { onNearEventRef.current = onNearEvent }, [onNearEvent])
 
   // alertedRef   — last voice-alert timestamp per event id
+  // sirenedRef   — last siren+flash timestamp per event id (820 m police only)
   // confirmedRef — last "near" prompt timestamp per event id
   const alertedRef   = useRef<Map<string, number>>(new Map())
+  const sirenedRef   = useRef<Map<string, number>>(new Map())
   const confirmedRef = useRef<Map<string, number>>(new Map())
 
   useEffect(() => {
@@ -50,17 +52,23 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
         for (const ev of eventsRef.current) {
           const dist = haversine(lat, lng, ev.lat, ev.lng)
 
-          // ── Voice alert ──────────────────────────────────────────────────
+          // ── Police siren + flash at 820 m (before voice alert) ──────────
+          if (ev.type === 'police' && dist <= POLICE_SIREN_DISTANCE_M) {
+            const lastSiren = sirenedRef.current.get(ev.id) ?? 0
+            if (now - lastSiren >= COOLDOWN_MS) {
+              sirenedRef.current.set(ev.id, now)
+              playPoliceSiren()
+              onPoliceRef.current?.()
+            }
+          }
+
+          // ── Voice alert at configured distance ───────────────────────────
           const threshold = ALERT_DISTANCES[ev.type]
           if (dist <= threshold) {
             const lastAlert = alertedRef.current.get(ev.id) ?? 0
             if (now - lastAlert >= COOLDOWN_MS) {
               alertedRef.current.set(ev.id, now)
               speak(ev.type)
-              if (ev.type === 'police') {
-                playPoliceSiren()
-                onPoliceRef.current?.()
-              }
             }
           }
 
