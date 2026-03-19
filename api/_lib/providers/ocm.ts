@@ -68,7 +68,6 @@ export async function fetchOCMStations(
     output:       'json',
     compact:      'true',
     verbose:      'false',
-    key:          apiKey,
   })
 
   const url = `${OCM_BASE}?${params}`
@@ -79,9 +78,10 @@ export async function fetchOCMStations(
     const res = await fetch(url, {
       signal: controller.signal,
       headers: {
-        Accept: 'application/json',
-        'X-API-Key': apiKey,
-        'User-Agent': 'tesla-ev-nav/1.0',
+        Accept:        'application/json',
+        'X-API-Key':   apiKey,
+        'User-Agent':  'TeslaWaze/1.0 (https://tesla-waze-1.vercel.app; contact via openchargemap.org)',
+        'Referrer':    'https://tesla-waze-1.vercel.app',
       },
     })
 
