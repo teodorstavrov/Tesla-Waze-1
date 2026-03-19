@@ -3,21 +3,28 @@ import type { ReportedEvent, EventType } from './types'
 
 const API = '/api/events'
 
+export interface EventBBox {
+  minLat: number; minLng: number; maxLat: number; maxLng: number
+}
+
 interface EventState {
   events:      ReportedEvent[]
   syncError:   boolean          // true when backend is unreachable
   addEvent:    (type: EventType, lat: number, lng: number) => Promise<void>
   removeEvent: (id: string) => Promise<void>
-  loadEvents:  () => Promise<void>
+  loadEvents:  (bbox?: EventBBox) => Promise<void>
 }
 
 export const useEventStore = create<EventState>((set) => ({
   events:    [],
   syncError: false,
 
-  loadEvents: async () => {
+  loadEvents: async (bbox) => {
     try {
-      const res = await fetch(API)
+      const url = bbox
+        ? `${API}?minLat=${bbox.minLat}&minLng=${bbox.minLng}&maxLat=${bbox.maxLat}&maxLng=${bbox.maxLng}`
+        : API
+      const res = await fetch(url)
       if (res.ok) {
         const data = await res.json()
         set({ events: data.events as ReportedEvent[], syncError: false })
@@ -61,6 +68,3 @@ export const useEventStore = create<EventState>((set) => ({
   },
 }))
 
-// Load on startup, then poll every 30 s to pick up other users' reports
-useEventStore.getState().loadEvents()
-setInterval(() => useEventStore.getState().loadEvents(), 30_000)

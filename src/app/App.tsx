@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import type { Map as LMap } from 'leaflet'
 
 import { MapShell }            from '@/components/MapShell'
@@ -22,6 +22,7 @@ import { ConfirmEventPrompt }  from '@/components/ConfirmEventPrompt'
 import { useEVStore }                              from '@/features/ev/store'
 import { useEVPolling }                            from '@/features/ev/hooks/useEVPolling'
 import { useAutoRefresh }                          from '@/features/ev/hooks/useAutoRefresh'
+import { useEventPolling }                         from '@/features/events/hooks/useEventPolling'
 import { applyFilter } from '@/features/ev/selectors'
 import { useRouteStore }                           from '@/features/route/store'
 import { useRoute }                                from '@/features/route/hooks/useRoute'
@@ -33,7 +34,8 @@ import { useProximityAlerts, unlockAudio } from '@/features/alerts/useProximityA
 export function App() {
   const [map, setMap]    = useState<LMap | null>(null)
   const mapRef           = useRef<LMap | null>(null)
-  const { trigger }      = useEVPolling()
+  const { trigger }             = useEVPolling()
+  const { trigger: triggerEv }  = useEventPolling()
   const [siren,        setSiren]        = useState(false)
   const [confirmEvent, setConfirmEvent] = useState<ReportedEvent | null>(null)
 
@@ -94,7 +96,10 @@ export function App() {
   const events = useEventStore((s) => s.events)
 
   // ── Derived ────────────────────────────────────────────────────────────────
-  const filteredStations = applyFilter(stations, filterMode)
+  const filteredStations = useMemo(
+    () => applyFilter(stations, filterMode),
+    [stations, filterMode],
+  )
 
   useAutoRefresh(map, trigger)
 
@@ -102,9 +107,13 @@ export function App() {
     setMap(m)
     mapRef.current = m
     trigger(m)
-  }, [trigger])
+    triggerEv(m)
+  }, [trigger, triggerEv])
 
-  const handleBoundsChange = useCallback((m: LMap) => { trigger(m) }, [trigger])
+  const handleBoundsChange = useCallback((m: LMap) => {
+    trigger(m)
+    triggerEv(m)
+  }, [trigger, triggerEv])
   const handleRetry        = useCallback(() => {
     setError(null)
     if (mapRef.current) trigger(mapRef.current)

@@ -13,7 +13,13 @@ export default async function handler(req: any, res: any): Promise<void> {
 
   if (req.method === 'GET') {
     try {
-      const events = await eventsStore.getAll()
+      const all = await eventsStore.getAll()
+      const { minLat, minLng, maxLat, maxLng } = req.query ?? {}
+      const events = (minLat != null && minLng != null && maxLat != null && maxLng != null)
+        ? all.filter((e) =>
+            e.lat >= Number(minLat) && e.lat <= Number(maxLat) &&
+            e.lng >= Number(minLng) && e.lng <= Number(maxLng))
+        : all
       res.setHeader('Cache-Control', 'no-store')
       res.status(200).json({ events })
     } catch (err) {
