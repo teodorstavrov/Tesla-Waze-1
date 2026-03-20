@@ -106,15 +106,16 @@ export function SearchBar({ map, onPlace }: Props) {
     setStatus('loading')
     timerRef.current = setTimeout(async () => {
       try {
+        const center = map?.getCenter()
+        const near   = center ? { lat: center.lat, lng: center.lng } : undefined
         const [geoList, evList] = await Promise.all([
           geocode(q).catch(() => [] as GeoResult[]),
-          searchStations(q).catch(() => [] as StationSearchResult[]),
+          searchStations(q, near).catch(() => [] as StationSearchResult[]),
         ])
 
-        // Sort by distance from map center (or GPS if available)
-        const ref = map?.getCenter()
-        if (ref) {
-          const dist = (lat: number, lng: number) => haversine(ref.lat, ref.lng, lat, lng)
+        // Sort both lists by distance from map center
+        if (near) {
+          const dist = (lat: number, lng: number) => haversine(near.lat, near.lng, lat, lng)
           geoList.sort((a, b) => dist(a.lat, a.lng) - dist(b.lat, b.lng))
           evList.sort((a, b)  => dist(a.lat, a.lng) - dist(b.lat, b.lng))
         }
