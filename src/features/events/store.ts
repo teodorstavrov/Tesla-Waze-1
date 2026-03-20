@@ -15,16 +15,24 @@ interface EventState {
   loadEvents:  (bbox?: EventBBox) => Promise<void>
 }
 
+// Abort any in-flight request before starting a new one
+let _eventsAbort: AbortController | null = null
+
 export const useEventStore = create<EventState>((set) => ({
   events:    [],
   syncError: false,
 
   loadEvents: async (bbox) => {
+    // Cancel previous in-flight request
+    _eventsAbort?.abort()
+    _eventsAbort = new AbortController()
+    const { signal } = _eventsAbort
+
     try {
       const url = bbox
         ? `${API}?minLat=${bbox.minLat}&minLng=${bbox.minLng}&maxLat=${bbox.maxLat}&maxLng=${bbox.maxLng}`
         : API
-      const res = await fetch(url)
+      const res = await fetch(url, { signal })
       if (res.ok) {
         const data = await res.json()
         set({ events: data.events as ReportedEvent[], syncError: false })
@@ -33,6 +41,7 @@ export const useEventStore = create<EventState>((set) => ({
         set({ syncError: true })
       }
     } catch (err) {
+      if ((err as Error).name === 'AbortError') return   // stale request — ignore
       console.warn('[events] fetch failed', err)
       set({ syncError: true })
     }

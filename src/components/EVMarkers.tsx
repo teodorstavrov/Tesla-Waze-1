@@ -40,8 +40,9 @@ export function EVMarkers({ map, stations, route }: Props) {
   const clusterRef    = useRef<L.MarkerClusterGroup | null>(null)
   const routeLayerRef = useRef<LayerGroup | null>(null)
 
-  // markerMap: stationId → { marker, inRoute: bool }
-  const markerMapRef  = useRef<Map<string, { marker: Marker; inRoute: boolean }>>(new Map())
+  // markerMap: stationId → { marker, inRoute, fingerprint }
+  // fingerprint captures the fields that affect popup/icon; skip update when unchanged
+  const markerMapRef  = useRef<Map<string, { marker: Marker; inRoute: boolean; fp: string }>>(new Map())
 
   // ── Effect 1: cluster group lifecycle ─────────────────────────────────────
   useEffect(() => {
@@ -88,7 +89,7 @@ export function EVMarkers({ map, stations, route }: Props) {
 
     clusterRef.current    = cluster
     routeLayerRef.current = routeLayer
-    markerMapRef.current  = new Map()
+    markerMapRef.current = new Map()
     map.addLayer(cluster)
 
     return () => {
@@ -107,6 +108,10 @@ export function EVMarkers({ map, stations, route }: Props) {
     const markerMap  = markerMapRef.current
     if (!cluster || !routeLayer) return
 
+    // Fingerprint: fields that affect icon or popup content
+    const fingerprint = (s: EVStation, inRoute: boolean) =>
+      `${s.isTesla}|${s.availablePorts}|${s.totalPorts}|${inRoute}`
+
     // Build new desired state
     const desired = new Map<string, { station: EVStation; inRoute: boolean }>()
     for (const s of stations) {
@@ -114,53 +119,70 @@ export function EVMarkers({ map, stations, route }: Props) {
       desired.set(s.id, { station: s, inRoute })
     }
 
+    let added = 0, removed = 0, moved = 0, skipped = 0
+
     // Remove markers no longer in the new set
     for (const [id, { marker, inRoute }] of markerMap) {
       if (!desired.has(id)) {
         if (inRoute) routeLayer.removeLayer(marker)
         else         cluster.removeLayer(marker)
         markerMap.delete(id)
+        removed++
       }
     }
 
-    // Add new markers / move between layers if route changed
+    // Add new markers / move between layers / update popup if content changed
     const toAddCluster:    Marker[] = []
     const toAddRouteLayer: Marker[] = []
 
     for (const [id, { station, inRoute }] of desired) {
       const existing = markerMap.get(id)
+      const newFp    = fingerprint(station, inRoute)
 
       if (existing) {
-        // Already exists — check if it needs to move between layers
+        if (existing.fp === newFp) {
+          skipped++
+          continue    // nothing changed — skip entirely
+        }
+
+        // Layer changed (route toggle)
         if (existing.inRoute !== inRoute) {
           if (existing.inRoute) {
             routeLayer.removeLayer(existing.marker)
+            existing.marker.setIcon(iconForStation(station.isTesla))
+            existing.marker.options.zIndexOffset = 0
             toAddCluster.push(existing.marker)
           } else {
             cluster.removeLayer(existing.marker)
+            existing.marker.setIcon(highlightIcon(station.isTesla))
+            existing.marker.options.zIndexOffset = 800
             toAddRouteLayer.push(existing.marker)
           }
-          markerMap.set(id, { marker: existing.marker, inRoute })
+          moved++
         }
+
+        // Refresh popup if availability changed
+        existing.marker.setPopupContent(buildPopupHTML(station))
+        markerMap.set(id, { marker: existing.marker, inRoute, fp: newFp })
       } else {
-        // New marker
-        const icon = inRoute
-          ? highlightIcon(station.isTesla)
-          : iconForStation(station.isTesla)
-        const zOff = inRoute ? 800 : 0
+        // Brand-new marker
+        const icon = inRoute ? highlightIcon(station.isTesla) : iconForStation(station.isTesla)
         const m = L.marker(
           [station.position.lat, station.position.lng],
-          { icon, zIndexOffset: zOff },
+          { icon, zIndexOffset: inRoute ? 800 : 0 },
         )
         m.bindPopup(buildPopupHTML(station), { maxWidth: 300, minWidth: 230, className: 'ev-popup' })
-        markerMap.set(id, { marker: m, inRoute })
+        markerMap.set(id, { marker: m, inRoute, fp: newFp })
         if (inRoute) toAddRouteLayer.push(m)
         else         toAddCluster.push(m)
+        added++
       }
     }
 
     if (toAddCluster.length)    cluster.addLayers(toAddCluster)
     for (const m of toAddRouteLayer) routeLayer.addLayer(m)
+
+    console.log('[EVMarkers] diff', { total: stations.length, added, removed, moved, skipped })
 
   }, [stations, route])
 

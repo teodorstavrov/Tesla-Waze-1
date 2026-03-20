@@ -4,8 +4,11 @@
  *  - onPolice callback (siren flash) when within 800m of a police marker
  *  - onNearEvent callback when within 5m of ANY event (confirmation prompt)
  *
- * A single watchPosition lives for the component lifetime.
- * Events and callbacks are read via refs so the watcher never restarts.
+ * Performance optimisations:
+ *  - GPS callbacks throttled to at most once per 3 s
+ *  - Skips processing if position moved less than MIN_MOVE_M (30 m)
+ *  - Bbox pre-filter narrows candidates to 2 km radius before haversine
+ *  - Zone-crossing tracking (outside→inside) prevents repeat fires
  */
 import { useEffect, useRef } from 'react'
 import { useEventStore }     from '@/features/events/store'
@@ -14,10 +17,15 @@ import { ALERT_DISTANCES, ALERT_LABELS_BG, COOLDOWN_MS, POLICE_SIREN_DISTANCE_M,
 import type { EventType }    from '@/features/events/types'
 import type { ReportedEvent } from '@/features/events/types'
 
-/** Distance in metres that triggers the "Still there?" confirmation prompt */
-const CONFIRM_DISTANCE_M = 5
-/** Don't re-prompt the same event within this window */
+const CONFIRM_DISTANCE_M  = 5
 const CONFIRM_COOLDOWN_MS = 60_000
+
+/** Minimum movement (metres) before re-processing alerts */
+const MIN_MOVE_M = 30
+/** Max alert distance — used for bbox pre-filter radius */
+const MAX_ALERT_M = Math.max(...Object.values(ALERT_DISTANCES), POLICE_SIREN_DISTANCE_M)
+/** Throttle: minimum ms between full alert passes */
+const THROTTLE_MS = 3_000
 
 interface AlertCallbacks {
   onPolice?:    () => void
@@ -34,14 +42,14 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
   useEffect(() => { onPoliceRef.current    = onPolice    }, [onPolice])
   useEffect(() => { onNearEventRef.current = onNearEvent }, [onNearEvent])
 
-  // Cooldown timestamps per event id
   const alertedRef   = useRef<Map<string, number>>(new Map())
   const sirenedRef   = useRef<Map<string, number>>(new Map())
   const confirmedRef = useRef<Map<string, number>>(new Map())
+  const insideRef    = useRef<Map<string, boolean>>(new Map())
 
-  // Zone presence tracking — fire only when crossing INTO zone (outside → inside)
-  // Key: `${evId}:voice`, `${evId}:siren`, `${evId}:confirm`
-  const insideRef = useRef<Map<string, boolean>>(new Map())
+  // Throttle / skip-small-move state
+  const lastPosRef      = useRef<{ lat: number; lng: number } | null>(null)
+  const lastProcessedRef = useRef<number>(0)
 
   useEffect(() => {
     if (!navigator.geolocation) return
@@ -51,10 +59,31 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
         const { latitude: lat, longitude: lng } = coords
         const now = Date.now()
 
-        for (const ev of eventsRef.current) {
+        // ── Throttle: skip if processed too recently ────────────────────────
+        if (now - lastProcessedRef.current < THROTTLE_MS) return
+
+        // ── Skip small moves ────────────────────────────────────────────────
+        if (lastPosRef.current) {
+          const moved = haversine(lat, lng, lastPosRef.current.lat, lastPosRef.current.lng)
+          if (moved < MIN_MOVE_M) return
+        }
+
+        lastPosRef.current      = { lat, lng }
+        lastProcessedRef.current = now
+
+        // ── Bbox pre-filter: ~2 km box before expensive haversine ───────────
+        const latDeg = MAX_ALERT_M / 111_320
+        const lngDeg = MAX_ALERT_M / (111_320 * Math.cos(lat * (Math.PI / 180)))
+        const candidates = eventsRef.current.filter(
+          (ev) =>
+            ev.lat >= lat - latDeg && ev.lat <= lat + latDeg &&
+            ev.lng >= lng - lngDeg && ev.lng <= lng + lngDeg,
+        )
+
+        for (const ev of candidates) {
           const dist = haversine(lat, lng, ev.lat, ev.lng)
 
-          // ── Police siren + flash at 820 m ────────────────────────────────
+          // ── Police siren + flash at 820 m ──────────────────────────────
           if (ev.type === 'police') {
             const sirenKey  = `${ev.id}:siren`
             const wasInside = insideRef.current.get(sirenKey) ?? false
@@ -62,8 +91,8 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
             insideRef.current.set(sirenKey, nowInside)
 
             if (nowInside && !wasInside) {
-              const lastSiren = sirenedRef.current.get(ev.id) ?? 0
-              if (now - lastSiren >= COOLDOWN_MS) {
+              const last = sirenedRef.current.get(ev.id) ?? 0
+              if (now - last >= COOLDOWN_MS) {
                 sirenedRef.current.set(ev.id, now)
                 playPoliceSiren()
                 onPoliceRef.current?.()
@@ -71,16 +100,16 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
             }
           }
 
-          // ── Police close alert at 300 m (siren + flash + voice) ──────────
+          // ── Police close alert at 300 m ────────────────────────────────
           if (ev.type === 'police') {
-            const closeKey    = `${ev.id}:close`
-            const wasInClose  = insideRef.current.get(closeKey) ?? false
-            const nowInClose  = dist <= POLICE_CLOSE_DISTANCE_M
+            const closeKey   = `${ev.id}:close`
+            const wasInClose = insideRef.current.get(closeKey) ?? false
+            const nowInClose = dist <= POLICE_CLOSE_DISTANCE_M
             insideRef.current.set(closeKey, nowInClose)
 
             if (nowInClose && !wasInClose) {
-              const lastClose = alertedRef.current.get(`${ev.id}:close`) ?? 0
-              if (now - lastClose >= COOLDOWN_MS) {
+              const last = alertedRef.current.get(`${ev.id}:close`) ?? 0
+              if (now - last >= COOLDOWN_MS) {
                 alertedRef.current.set(`${ev.id}:close`, now)
                 playPoliceSiren()
                 onPoliceRef.current?.()
@@ -89,30 +118,30 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
             }
           }
 
-          // ── Voice alert ──────────────────────────────────────────────────
+          // ── Voice alert ────────────────────────────────────────────────
           const threshold  = ALERT_DISTANCES[ev.type]
           const voiceKey   = `${ev.id}:voice`
           const wasInVoice = insideRef.current.get(voiceKey) ?? false
           const nowInVoice = dist <= threshold
           insideRef.current.set(voiceKey, nowInVoice)
 
-          if (nowInVoice && !wasInVoice) {           // entering zone
-            const lastAlert = alertedRef.current.get(ev.id) ?? 0
-            if (now - lastAlert >= COOLDOWN_MS) {
+          if (nowInVoice && !wasInVoice) {
+            const last = alertedRef.current.get(ev.id) ?? 0
+            if (now - last >= COOLDOWN_MS) {
               alertedRef.current.set(ev.id, now)
               speak(ev.type)
             }
           }
 
-          // ── 5 m confirmation prompt ──────────────────────────────────────
+          // ── 5 m confirmation prompt ────────────────────────────────────
           const confirmKey   = `${ev.id}:confirm`
           const wasInConfirm = insideRef.current.get(confirmKey) ?? false
           const nowInConfirm = dist <= CONFIRM_DISTANCE_M
           insideRef.current.set(confirmKey, nowInConfirm)
 
-          if (nowInConfirm && !wasInConfirm) {       // entering zone
-            const lastConfirm = confirmedRef.current.get(ev.id) ?? 0
-            if (now - lastConfirm >= CONFIRM_COOLDOWN_MS) {
+          if (nowInConfirm && !wasInConfirm) {
+            const last = confirmedRef.current.get(ev.id) ?? 0
+            if (now - last >= CONFIRM_COOLDOWN_MS) {
               confirmedRef.current.set(ev.id, now)
               onNearEventRef.current?.(ev)
             }
@@ -120,7 +149,7 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
         }
       },
       null,
-      { enableHighAccuracy: true, maximumAge: 2_000 },
+      { enableHighAccuracy: true, maximumAge: 3_000 },
     )
 
     return () => navigator.geolocation.clearWatch(watchId)
@@ -137,7 +166,6 @@ function speak(type: EventType) {
   window.speechSynthesis.speak(utt)
 }
 
-/** Police siren: two-tone sweep 770 Hz ↔ 960 Hz, 3 cycles, ~3 s */
 let _audioCtx: AudioContext | null = null
 
 function getAudioCtx(): AudioContext | null {
@@ -151,7 +179,6 @@ function getAudioCtx(): AudioContext | null {
   }
 }
 
-/** Call once on first user gesture to unlock the AudioContext */
 export function unlockAudio() {
   const ctx = getAudioCtx()
   if (!ctx) return
@@ -168,19 +195,15 @@ export function playPoliceSiren() {
     osc.connect(gain)
     gain.connect(ctx.destination)
 
-    const t   = ctx.currentTime
-    const dur = 2.0          // total seconds
-    const hi  = 960          // Hz — high tone
-    const lo  = 770          // Hz — low tone
-    const step = 0.45        // seconds per half-cycle
+    const t    = ctx.currentTime
+    const dur  = 2.0
+    const hi   = 960
+    const lo   = 770
+    const step = 0.45
 
-    // Ramp between hi ↔ lo for 3 full cycles
     osc.frequency.setValueAtTime(hi, t)
     for (let i = 0; i < Math.floor(dur / step); i++) {
-      osc.frequency.linearRampToValueAtTime(
-        i % 2 === 0 ? lo : hi,
-        t + (i + 1) * step,
-      )
+      osc.frequency.linearRampToValueAtTime(i % 2 === 0 ? lo : hi, t + (i + 1) * step)
     }
 
     gain.gain.setValueAtTime(0.35, t)
@@ -193,7 +216,7 @@ export function playPoliceSiren() {
   }
 
   if (ctx.state === 'suspended') {
-    ctx.resume().then(resume).catch(() => { /* blocked by browser */ })
+    ctx.resume().then(resume).catch(() => {})
   } else {
     resume()
   }
