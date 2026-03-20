@@ -97,8 +97,8 @@ export function App() {
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const filteredStations = useMemo(
-    () => applyFilter(stations, filterMode),
-    [stations, filterMode],
+    () => applyFilter(stations, filterMode, route),
+    [stations, filterMode, route],
   )
 
   useAutoRefresh(map, trigger)

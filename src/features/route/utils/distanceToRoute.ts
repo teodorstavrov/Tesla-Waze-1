@@ -32,7 +32,7 @@ export interface RouteMeta {
   bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number }
 }
 
-export function buildRouteMeta(coords: [number, number][]): RouteMeta {
+export function buildRouteMeta(coords: [number, number][], bufferM = BUFFER_METRES): RouteMeta {
   const MAX_ROUTE_POINTS = 400
 
   const decimated = decimate(coords, MAX_ROUTE_POINTS)
@@ -46,8 +46,8 @@ export function buildRouteMeta(coords: [number, number][]): RouteMeta {
     if (lng > maxLng) maxLng = lng
   }
 
-  // Expand bbox by BUFFER_METRES in degrees (approximate)
-  const bufLat = BUFFER_METRES / EARTH_R * (180 / Math.PI)
+  // Expand bbox by bufferM in degrees (approximate)
+  const bufLat = bufferM / EARTH_R * (180 / Math.PI)
   const bufLng = bufLat / Math.cos(((minLat + maxLat) / 2) * DEG_TO_RAD)
 
   return {
