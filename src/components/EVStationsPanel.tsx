@@ -2,9 +2,8 @@
  * EVStationsPanel — shows 10 nearest EV stations sorted by distance.
  * Brand filter at top. Tapping a station starts navigation to it.
  */
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { haversine }        from '@/lib/haversine'
-import { useRoute }         from '@/features/route/hooks/useRoute'
 import type { EVStation }   from '@/features/ev/types'
 
 interface Props {
@@ -19,14 +18,24 @@ interface StationWithDist extends EVStation {
 export function EVStationsPanel({ stations, onClose }: Props) {
   const [userPos,     setUserPos]     = useState<{ lat: number; lng: number } | null>(null)
   const [brandFilter, setBrandFilter] = useState<string>('all')
-  const { calculate } = useRoute()
+  const userPosRef = useRef<{ lat: number; lng: number } | null>(null)
 
   useEffect(() => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => {},
-      { timeout: 5_000, maximumAge: 10_000 },
-    )
+    let cancelled = false
+    const tryGet = (highAccuracy: boolean) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          if (cancelled) return
+          const p = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+          userPosRef.current = p
+          setUserPos(p)
+        },
+        () => { if (!cancelled && highAccuracy) tryGet(false) },
+        { enableHighAccuracy: highAccuracy, timeout: 4_000, maximumAge: 10_000 },
+      )
+    }
+    tryGet(true)
+    return () => { cancelled = true }
   }, [])
 
   // Sort all stations by distance, take top 50 for brand extraction
@@ -50,14 +59,13 @@ export function EVStationsPanel({ stations, onClose }: Props) {
     .filter((s) => brandFilter === 'all' || s.operator === brandFilter)
     .slice(0, 10)
 
+  // Dispatch ev:navigate — App.tsx handles it with GPS + map-center fallback
   const navigateTo = useCallback((station: StationWithDist) => {
-    if (!userPos) return
     onClose()
-    calculate(
-      { lat: userPos.lat, lng: userPos.lng, label: 'Моята локация' },
-      { lat: station.position.lat, lng: station.position.lng, label: station.name },
-    )
-  }, [userPos, calculate, onClose])
+    window.dispatchEvent(new CustomEvent('ev:navigate', {
+      detail: { lat: station.position.lat, lng: station.position.lng, name: station.name },
+    }))
+  }, [onClose])
 
   return (
     <div

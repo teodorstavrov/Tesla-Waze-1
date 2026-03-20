@@ -66,21 +66,37 @@ export function App() {
   const handleNearEvent = useCallback((ev: ReportedEvent) => setConfirmEvent(ev), [])
   useProximityAlerts({ onPolice: handlePolice, onNearEvent: handleNearEvent })
 
-  // ── Popup Navigate button ───────────────────────────────────────────────────
+  // ── Popup / panel Navigate button ──────────────────────────────────────────
   const { calculate } = useRoute()
   useEffect(() => {
     const handler = (e: Event) => {
       const { lat, lng, name } = (e as CustomEvent<{ lat: number; lng: number; name: string }>).detail
+      const dest = { lat, lng, label: name }
+      const fallbackOrigin = () => {
+        const c = mapRef.current?.getCenter()
+        return { lat: c?.lat ?? lat, lng: c?.lng ?? lng, label: 'Моята локация' }
+      }
+
+      if (!navigator.geolocation) { calculate(fallbackOrigin(), dest); return }
+
+      let settled = false
+      const timer = setTimeout(() => {
+        if (!settled) { settled = true; calculate(fallbackOrigin(), dest) }
+      }, 5_000)
+
       navigator.geolocation.getCurrentPosition(
-        (pos) => calculate(
-          { lat: pos.coords.latitude, lng: pos.coords.longitude, label: 'Моята локация' },
-          { lat, lng, label: name },
-        ),
-        () => calculate(
-          { lat: mapRef.current?.getCenter().lat ?? lat, lng: mapRef.current?.getCenter().lng ?? lng, label: 'Моята локация' },
-          { lat, lng, label: name },
-        ),
-        { timeout: 4_000, maximumAge: 10_000 },
+        (pos) => {
+          if (settled) return
+          settled = true; clearTimeout(timer)
+          calculate({ lat: pos.coords.latitude, lng: pos.coords.longitude, label: 'Моята локация' }, dest)
+        },
+        () => {
+          if (settled) return
+          settled = true; clearTimeout(timer)
+          calculate(fallbackOrigin(), dest)
+        },
+        // maximumAge: 60s — while driving there's always a recent cached position
+        { enableHighAccuracy: false, timeout: 4_000, maximumAge: 60_000 },
       )
     }
     window.addEventListener('ev:navigate', handler)
