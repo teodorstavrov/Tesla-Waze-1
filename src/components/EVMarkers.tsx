@@ -140,6 +140,11 @@ export function EVMarkers({ map, stations, route }: Props) {
     const CHUNK = 60   // stations per idle chunk
 
     function processChunk(deadline: IdleDeadline) {
+      // Guard: layers may have been torn down between idle chunks (unmount)
+      const cl = clusterRef.current
+      const rl = routeLayerRef.current
+      if (!cl || !rl) return
+
       const toAddCluster:    Marker[] = []
       const toAddRouteLayer: Marker[] = []
 
@@ -147,9 +152,9 @@ export function EVMarkers({ map, stations, route }: Props) {
         const end = Math.min(idx + CHUNK, stations.length)
 
         for (; idx < end; idx++) {
-          const s       = stations[idx]
-          const inRoute = !!meta && isNearRouteMeta(s.position.lat, s.position.lng, meta)
-          const newFp   = fingerprint(s, inRoute)
+          const s        = stations[idx]
+          const inRoute  = !!meta && isNearRouteMeta(s.position.lat, s.position.lng, meta)
+          const newFp    = fingerprint(s, inRoute)
           const existing = markerMap.get(s.id)
 
           if (existing) {
@@ -157,11 +162,11 @@ export function EVMarkers({ map, stations, route }: Props) {
 
             if (existing.inRoute !== inRoute) {
               if (existing.inRoute) {
-                routeLayer.removeLayer(existing.marker)
+                rl.removeLayer(existing.marker)
                 existing.marker.setIcon(iconForStation(s.isTesla))
                 toAddCluster.push(existing.marker)
               } else {
-                cluster.removeLayer(existing.marker)
+                cl.removeLayer(existing.marker)
                 existing.marker.setIcon(highlightIcon(s.isTesla))
                 toAddRouteLayer.push(existing.marker)
               }
@@ -180,8 +185,8 @@ export function EVMarkers({ map, stations, route }: Props) {
           }
         }
 
-        if (toAddCluster.length)    cluster.addLayers(toAddCluster)
-        for (const m of toAddRouteLayer) routeLayer.addLayer(m)
+        if (toAddCluster.length)    cl.addLayers(toAddCluster)
+        for (const m of toAddRouteLayer) rl.addLayer(m)
       }
 
       if (idx < stations.length) {
