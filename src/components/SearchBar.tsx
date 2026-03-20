@@ -84,6 +84,23 @@ function spotlightMarker(map: LMap, lat: number, lng: number, name: string): Mar
   return marker
 }
 
+/** Get GPS position quickly (coarse, cached up to 60s). Returns null on failure. */
+function getCoarsePosition(): Promise<{ lat: number; lng: number } | null> {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) { resolve(null); return }
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      ()  => resolve(null),
+      { enableHighAccuracy: false, timeout: 3_000, maximumAge: 60_000 },
+    )
+  })
+}
+
+/** True if the result name/label visibly contains the query string. */
+function nameMatches(text: string, q: string): boolean {
+  return text.toLowerCase().includes(q.toLowerCase())
+}
+
 export function SearchBar({ map, onPlace }: Props) {
   const [open,       setOpen]       = useState(false)
   const [query,      setQuery]      = useState('')
@@ -91,8 +108,16 @@ export function SearchBar({ map, onPlace }: Props) {
   const [evResults,  setEvResults]  = useState<StationSearchResult[]>([])
   const [history,    setHistory]    = useState<HistoryEntry[]>([])
   const [status,     setStatus]     = useState<'idle' | 'loading' | 'empty' | 'error'>('idle')
-  const inputRef = useRef<HTMLInputElement>(null)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const inputRef  = useRef<HTMLInputElement>(null)
+  const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Cache GPS position for the duration of the open session
+  const gpsRef    = useRef<{ lat: number; lng: number } | null>(null)
+
+  // Fetch GPS when search opens so it's ready before the first keypress
+  useEffect(() => {
+    if (!open) return
+    getCoarsePosition().then((pos) => { if (pos) gpsRef.current = pos })
+  }, [open])
 
   // Debounced parallel search
   useEffect(() => {
@@ -106,23 +131,36 @@ export function SearchBar({ map, onPlace }: Props) {
     setStatus('loading')
     timerRef.current = setTimeout(async () => {
       try {
-        const center = map?.getCenter()
-        const near   = center ? { lat: center.lat, lng: center.lng } : undefined
+        // Resolve reference point: GPS > map center > none
+        const ref = gpsRef.current ?? (map?.getCenter()
+          ? { lat: map.getCenter().lat, lng: map.getCenter().lng }
+          : null)
+
+        const near = ref ?? undefined
         const [geoList, evList] = await Promise.all([
           geocode(q).catch(() => [] as GeoResult[]),
           searchStations(q, near).catch(() => [] as StationSearchResult[]),
         ])
 
-        // Sort both lists by distance from map center
-        if (near) {
-          const dist = (lat: number, lng: number) => haversine(near.lat, near.lng, lat, lng)
-          geoList.sort((a, b) => dist(a.lat, a.lng) - dist(b.lat, b.lng))
-          evList.sort((a, b)  => dist(a.lat, a.lng) - dist(b.lat, b.lng))
+        // Filter: only keep results whose visible name contains the query
+        const ql = q.toLowerCase()
+        const filteredGeo = geoList.filter((r) =>
+          nameMatches(r.shortName, ql) || nameMatches(r.country, ql),
+        )
+        const filteredEv = evList.filter((s) =>
+          nameMatches(s.name, ql) || nameMatches(s.operator, ql) || nameMatches(s.city, ql),
+        )
+
+        // Sort nearest first using GPS (or map center as fallback)
+        if (ref) {
+          const dist = (lat: number, lng: number) => haversine(ref.lat, ref.lng, lat, lng)
+          filteredGeo.sort((a, b) => dist(a.lat, a.lng) - dist(b.lat, b.lng))
+          filteredEv.sort((a, b)  => dist(a.lat, a.lng) - dist(b.lat, b.lng))
         }
 
-        setPlaces(geoList)
-        setEvResults(evList)
-        setStatus(geoList.length === 0 && evList.length === 0 ? 'empty' : 'idle')
+        setPlaces(filteredGeo)
+        setEvResults(filteredEv)
+        setStatus(filteredGeo.length === 0 && filteredEv.length === 0 ? 'empty' : 'idle')
       } catch {
         setPlaces([]); setEvResults([]); setStatus('error')
       }
@@ -139,6 +177,7 @@ export function SearchBar({ map, onPlace }: Props) {
   const collapse = useCallback(() => {
     setOpen(false); setQuery('')
     setPlaces([]); setEvResults([]); setStatus('idle')
+    gpsRef.current = null
   }, [])
 
   const selectPlace = useCallback((r: GeoResult | HistoryEntry) => {
