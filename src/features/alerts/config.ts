@@ -16,7 +16,7 @@ export const ALERT_LABELS_BG: Record<EventType, string> = {
 }
 
 /** Distance at which the first police siren + flash fires */
-export const POLICE_SIREN_DISTANCE_M = 820
+export const POLICE_SIREN_DISTANCE_M = 800
 
 /** Distance at which the second (close) police siren + flash + voice fires */
 export const POLICE_CLOSE_DISTANCE_M = 300

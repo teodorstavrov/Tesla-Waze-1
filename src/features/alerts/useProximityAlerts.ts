@@ -83,7 +83,7 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
         for (const ev of candidates) {
           const dist = haversine(lat, lng, ev.lat, ev.lng)
 
-          // ── Police siren + flash at 820 m ──────────────────────────────
+          // ── Police siren + flash + voice at 800 m ─────────────────────
           if (ev.type === 'police') {
             const sirenKey  = `${ev.id}:siren`
             const wasInside = insideRef.current.get(sirenKey) ?? false
@@ -94,8 +94,12 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
               const last = sirenedRef.current.get(ev.id) ?? 0
               if (now - last >= COOLDOWN_MS) {
                 sirenedRef.current.set(ev.id, now)
+                // Mark voice alerted too so the generic voice block below doesn't double-fire
+                alertedRef.current.set(ev.id, now)
+                insideRef.current.set(`${ev.id}:voice`, true)
                 playPoliceSiren()
                 onPoliceRef.current?.()
+                speak('police')
               }
             }
           }
@@ -158,12 +162,25 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
 
 function speak(type: EventType) {
   if (!window.speechSynthesis) return
-  const utt  = new SpeechSynthesisUtterance(ALERT_LABELS_BG[type])
-  utt.lang   = 'bg-BG'
-  utt.rate   = 1.0
-  utt.volume = 1.0
-  window.speechSynthesis.cancel()
-  window.speechSynthesis.speak(utt)
+  const text = ALERT_LABELS_BG[type]
+
+  const doSpeak = () => {
+    const utt = new SpeechSynthesisUtterance(text)
+    utt.rate   = 1.0
+    utt.volume = 1.0
+
+    // Try Bulgarian voice first, fall back to any available voice
+    const voices = window.speechSynthesis.getVoices()
+    const bg = voices.find((v) => v.lang.startsWith('bg'))
+    if (bg) utt.voice = bg
+    else utt.lang = navigator.language || 'en-US'
+
+    window.speechSynthesis.cancel()
+    window.speechSynthesis.speak(utt)
+  }
+
+  // Small delay so the siren audio doesn't collide with speech init
+  setTimeout(doSpeak, 600)
 }
 
 let _audioCtx: AudioContext | null = null
