@@ -57,42 +57,47 @@ export function LocationButton({ map }: Props) {
     setState('locating')
     setErrMsg('')
 
-    const onError = (err: GeolocationPositionError) => {
+    const pan = (lat: number, lng: number) => {
+      map.setView([lat, lng], Math.max(map.getZoom(), 14), { animate: true })
+      placeDot(lat, lng)
+      setState('idle')
+    }
+
+    const showError = (code: number) => {
       const msgs: Record<number, string> = {
         1: 'Достъпът до локацията е отказан',
         2: 'Локацията е недостъпна',
         3: 'Изтече времето за търсене',
       }
-      setErrMsg(msgs[err.code] ?? 'Грешка при локация')
+      setErrMsg(msgs[code] ?? 'Грешка при локация')
       setState('error')
       setTimeout(() => setState('idle'), 3500)
     }
 
-    // Step 1: fast coarse fix (network/WiFi) — pans immediately
+    // Step 1: try any cached position first (Infinity maximumAge) — instant on Tesla
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const { latitude: lat, longitude: lng } = pos.coords
-        map.setView([lat, lng], Math.max(map.getZoom(), 14), { animate: true })
-        placeDot(lat, lng)
-        setState('idle')
-
-        // Step 2: refine with GPS in the background (no UI change)
+        pan(pos.coords.latitude, pos.coords.longitude)
+        // Step 2: refine silently with fresh GPS
         navigator.geolocation.getCurrentPosition(
           (precise) => {
-            const { latitude: pLat, longitude: pLng } = precise.coords
-            // Only update if meaningfully different (>20m)
-            const dx = Math.abs(pLat - lat) + Math.abs(pLng - lng)
-            if (dx > 0.0002) {
-              map.panTo([pLat, pLng], { animate: true })
-              placeDot(pLat, pLng)
-            }
+            const dx = Math.abs(precise.coords.latitude  - pos.coords.latitude) +
+                       Math.abs(precise.coords.longitude - pos.coords.longitude)
+            if (dx > 0.0002) pan(precise.coords.latitude, precise.coords.longitude)
           },
-          () => { /* silent — coarse fix is good enough */ },
-          { enableHighAccuracy: true, timeout: 8_000, maximumAge: 0 },
+          () => { /* coarse fix is good enough */ },
+          { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
         )
       },
-      onError,
-      { enableHighAccuracy: false, timeout: 5_000, maximumAge: 30_000 },
+      // No cached position — try a real fix with longer timeout
+      () => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => pan(pos.coords.latitude, pos.coords.longitude),
+          (err) => showError(err.code),
+          { enableHighAccuracy: false, timeout: 12_000, maximumAge: 0 },
+        )
+      },
+      { enableHighAccuracy: false, timeout: 1_000, maximumAge: Infinity },
     )
   }
 
