@@ -6,7 +6,6 @@ import { EVMarkers }           from '@/components/EVMarkers'
 import { EventMarkers }        from '@/components/EventMarkers'
 import { RouteLayer }          from '@/components/RouteLayer'
 import { HeadingArrow }        from '@/components/HeadingArrow'
-import { RoutePanel }          from '@/components/RoutePanel'
 import { BottomDock }          from '@/components/BottomDock'
 import { ThemeToggle }         from '@/components/ThemeToggle'
 import { ZoomControls }        from '@/components/ZoomControls'
@@ -167,9 +166,6 @@ export function App() {
 
       {/* Live position + heading arrow */}
       <HeadingArrow map={map} />
-
-      {/* Panels */}
-      <RoutePanel />
 
       {/* Search bar — top center */}
       <SearchBar map={map} onPlace={handlePlace} />
