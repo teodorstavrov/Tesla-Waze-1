@@ -75,7 +75,7 @@ export function EVStationsPanel({ stations, onClose }: Props) {
       <div className="glass-card overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2.5 border-b border-tesla-border">
-          <span className="text-[13px] font-semibold text-tesla-text">Зарядни станции</span>
+          <span className="text-[13px] font-semibold text-tesla-text">Близки станции</span>
           <button
             onClick={onClose}
             className="text-[12px] text-tesla-subtle hover:text-tesla-text px-2 py-1"
@@ -118,10 +118,10 @@ export function EVStationsPanel({ stations, onClose }: Props) {
             <button
               key={s.id}
               onClick={() => navigateTo(s)}
+              onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); navigateTo(s) }}
               className="w-full flex items-center gap-3 px-3 border-b border-tesla-border last:border-0
                          active:bg-tesla-surface text-left"
               style={{ height: '60px' }}
-              onTouchEnd={(e) => e.stopPropagation()}
             >
               <span className="text-[11px] font-bold text-tesla-subtle w-4 flex-shrink-0">
                 {i + 1}
