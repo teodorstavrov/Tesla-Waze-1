@@ -77,16 +77,15 @@ export function ReportButton({ map }: Props) {
     setOpen(false)
     if (!map) return
     const place = (lat: number, lng: number) => addEvent(type, lat, lng)
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => place(pos.coords.latitude, pos.coords.longitude),
-        ()    => { const c = map.getCenter(); place(c.lat, c.lng) },
-        { timeout: 3_000, maximumAge: 5_000 },
-      )
-    } else {
-      const c = map.getCenter()
-      place(c.lat, c.lng)
-    }
+    const fallback = () => { const c = map.getCenter(); place(c.lat, c.lng) }
+    if (!navigator.geolocation) { fallback(); return }
+    let settled = false
+    const timer = setTimeout(() => { if (!settled) { settled = true; fallback() } }, 4_000)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { if (!settled) { settled = true; clearTimeout(timer); place(pos.coords.latitude, pos.coords.longitude) } },
+      ()    => { if (!settled) { settled = true; clearTimeout(timer); fallback() } },
+      { timeout: 3_000, maximumAge: 5_000 },
+    )
   }, [map, addEvent])
 
   return (
@@ -95,7 +94,8 @@ export function ReportButton({ map }: Props) {
       {open && (
         <div
           className="fixed inset-0 z-[999]"
-          onTouchStart={() => setOpen(false)}
+          style={{ touchAction: 'none' }}
+          onTouchStart={(e) => { e.preventDefault(); setOpen(false) }}
           onClick={() => setOpen(false)}
         />
       )}
@@ -110,8 +110,8 @@ export function ReportButton({ map }: Props) {
             {EVENT_CONFIG.map(({ type, label, colour, icon }) => (
               <button
                 key={type}
-                onClick={() => report(type)}
-                onTouchEnd={(e) => { e.stopPropagation(); report(type) }}
+                onClick={(e) => { e.stopPropagation(); report(type) }}
+                onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); report(type) }}
                 className="flex flex-col items-center justify-center gap-2
                            border-r border-b border-tesla-border last:border-r-0
                            [&:nth-child(2)]:border-r-0 [&:nth-child(3)]:border-b-0 [&:nth-child(4)]:border-b-0
@@ -129,7 +129,7 @@ export function ReportButton({ map }: Props) {
       {/* Main button — above backdrop */}
       <button
         onClick={() => setOpen((o) => !o)}
-        onTouchEnd={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
+        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((o) => !o) }}
         aria-label="Сигнал"
         title={syncError ? 'Backend недостъпен' : 'Добави сигнал'}
         style={{

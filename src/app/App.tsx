@@ -42,12 +42,21 @@ export function App() {
   // Unlock speech synthesis + AudioContext on first user interaction
   useEffect(() => {
     const unlock = () => {
-      // Speech synthesis unlock
-      const u = new SpeechSynthesisUtterance('')
-      u.volume = 0
-      window.speechSynthesis.speak(u)
       // AudioContext warm-up (resume so it's ready for siren)
       unlockAudio()
+      // Speech synthesis unlock — only if API is available and voices are loaded
+      if (window.speechSynthesis) {
+        const tryUnlock = () => {
+          const u = new SpeechSynthesisUtterance('')
+          u.volume = 0
+          try { window.speechSynthesis.speak(u) } catch { /* ignore */ }
+        }
+        if (window.speechSynthesis.getVoices().length > 0) {
+          tryUnlock()
+        } else {
+          window.speechSynthesis.addEventListener('voiceschanged', tryUnlock, { once: true })
+        }
+      }
     }
     document.addEventListener('touchstart', unlock, { once: true })
     document.addEventListener('click',      unlock, { once: true })

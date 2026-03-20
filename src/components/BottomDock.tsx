@@ -41,8 +41,9 @@ export function BottomDock({ map, stations }: Props) {
       {evOpen && (
         <div
           className="fixed inset-0 z-[998]"
+          style={{ touchAction: 'none' }}
+          onTouchStart={(e) => { e.preventDefault(); setEvOpen(false) }}
           onClick={() => setEvOpen(false)}
-          onTouchEnd={() => setEvOpen(false)}
         />
       )}
 
@@ -61,7 +62,7 @@ export function BottomDock({ map, stations }: Props) {
             </div>
             <button
               onClick={cancelNav}
-              onTouchEnd={(e) => e.stopPropagation()}
+              onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); cancelNav() }}
               className="glass-card flex items-center gap-2 px-5 h-10
                          active:scale-95 transition-transform duration-100 select-none"
             >

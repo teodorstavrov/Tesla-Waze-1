@@ -95,7 +95,7 @@ export function EVStationsPanel({ stations, onClose }: Props) {
         </div>
 
         {/* Station list */}
-        <div className="overflow-y-auto" style={{ maxHeight: '320px' }}>
+        <div className="overflow-y-auto" style={{ maxHeight: '320px', touchAction: 'pan-y' }}>
           {!userPos && (
             <div className="px-4 py-4 text-[12px] text-tesla-subtle text-center">
               Определяне на позиция…

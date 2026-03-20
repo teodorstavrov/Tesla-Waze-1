@@ -8,7 +8,7 @@ export function LoadingOverlay({ visible, message = 'Loading stations…' }: Pro
 
   return (
     <div className="absolute inset-0 z-[9999] flex items-center justify-center pointer-events-none">
-      <div className="glass-card px-5 py-3 flex items-center gap-3">
+      <div className="glass-card px-5 py-3 flex items-center gap-3 pointer-events-none">
         {/* Spinner */}
         <svg
           className="animate-spin"

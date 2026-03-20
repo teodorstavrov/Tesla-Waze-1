@@ -153,7 +153,7 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
         }
       },
       null,
-      { enableHighAccuracy: true, maximumAge: 3_000 },
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 5_000 },
     )
 
     return () => navigator.geolocation.clearWatch(watchId)
@@ -164,31 +164,44 @@ function speak(type: EventType) {
   if (!window.speechSynthesis) return
   const text = ALERT_LABELS_BG[type]
 
-  const doSpeak = () => {
+  const doSpeak = (voices: SpeechSynthesisVoice[]) => {
     const utt = new SpeechSynthesisUtterance(text)
     utt.rate   = 1.0
     utt.volume = 1.0
-
-    // Try Bulgarian voice first, fall back to any available voice
-    const voices = window.speechSynthesis.getVoices()
-    const bg = voices.find((v) => v.lang.startsWith('bg'))
-    if (bg) utt.voice = bg
-    else utt.lang = navigator.language || 'en-US'
-
+    const bg = voices.find((v) => v.lang && v.lang.startsWith('bg'))
+    if (bg) {
+      utt.voice = bg
+    } else {
+      utt.lang = 'bg-BG'  // hint to browser; may or may not be honoured
+    }
     window.speechSynthesis.cancel()
     window.speechSynthesis.speak(utt)
   }
 
-  // Small delay so the siren audio doesn't collide with speech init
-  setTimeout(doSpeak, 600)
+  // Delay so siren audio doesn't collide with speech init
+  setTimeout(() => {
+    const voices = window.speechSynthesis.getVoices()
+    if (voices.length > 0) {
+      doSpeak(voices)
+    } else {
+      // Voices not loaded yet — wait for the event (async in Chrome/Chromium)
+      window.speechSynthesis.addEventListener(
+        'voiceschanged',
+        () => doSpeak(window.speechSynthesis.getVoices()),
+        { once: true },
+      )
+    }
+  }, 600)
 }
 
 let _audioCtx: AudioContext | null = null
 
 function getAudioCtx(): AudioContext | null {
   try {
+    const AC = window.AudioContext ?? (window as unknown as Record<string, unknown>)['webkitAudioContext'] as typeof AudioContext | undefined
+    if (!AC) return null
     if (!_audioCtx || _audioCtx.state === 'closed') {
-      _audioCtx = new AudioContext()
+      _audioCtx = new AC()
     }
     return _audioCtx
   } catch {

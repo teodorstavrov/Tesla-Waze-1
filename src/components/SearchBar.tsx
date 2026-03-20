@@ -86,7 +86,7 @@ function spotlightMarker(map: LMap, lat: number, lng: number, name: string): Mar
 
 /** Get GPS position quickly (coarse, cached up to 60s). Returns null on failure. */
 function getCoarsePosition(): Promise<{ lat: number; lng: number } | null> {
-  return new Promise((resolve) => {
+  const geoPromise = new Promise<{ lat: number; lng: number } | null>((resolve) => {
     if (!navigator.geolocation) { resolve(null); return }
     navigator.geolocation.getCurrentPosition(
       (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
@@ -94,6 +94,9 @@ function getCoarsePosition(): Promise<{ lat: number; lng: number } | null> {
       { enableHighAccuracy: false, timeout: 3_000, maximumAge: 60_000 },
     )
   })
+  // Hard cap — some browsers never reject/resolve on hung geolocation
+  const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4_000))
+  return Promise.race([geoPromise, timeoutPromise])
 }
 
 /** True if the result name/label visibly contains the query string. */
@@ -201,7 +204,8 @@ export function SearchBar({ map, onPlace }: Props) {
     collapse()
   }, [map, onPlace, collapse])
 
-  const deleteHistory = useCallback((e: React.MouseEvent, id: number) => {
+  const deleteHistory = useCallback((e: React.MouseEvent | React.TouchEvent, id: number) => {
+    e.preventDefault()
     e.stopPropagation()
     removeFromHistory(id)
     setHistory(loadHistory())

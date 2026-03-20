@@ -54,7 +54,7 @@ export function ConfirmEventPrompt({ event, onStillThere, onRemove }: Props) {
   return (
     <div
       className="absolute inset-0 z-[2500] flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)' }}
+      style={{ background: 'rgba(0,0,0,0.72)' }}
     >
       <div className="glass-card mx-4 w-full max-w-xs overflow-hidden">
         {/* Progress bar — shrinks over 10 s */}
@@ -90,6 +90,7 @@ export function ConfirmEventPrompt({ event, onStillThere, onRemove }: Props) {
           <div className="flex gap-3">
             <button
               onClick={onStillThere}
+              onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); onStillThere() }}
               className="flex-1 h-12 rounded-xl text-[14px] font-semibold
                          bg-tesla-surface border border-tesla-border text-tesla-text
                          active:scale-95 transition-transform"
@@ -98,6 +99,7 @@ export function ConfirmEventPrompt({ event, onStillThere, onRemove }: Props) {
             </button>
             <button
               onClick={onRemove}
+              onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); onRemove() }}
               className="flex-1 h-12 rounded-xl text-[14px] font-semibold
                          active:scale-95 transition-transform"
               style={{
