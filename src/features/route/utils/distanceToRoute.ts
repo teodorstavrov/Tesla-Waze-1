@@ -33,7 +33,7 @@ export interface RouteMeta {
 }
 
 export function buildRouteMeta(coords: [number, number][], bufferM = BUFFER_METRES): RouteMeta {
-  const MAX_ROUTE_POINTS = 400
+  const MAX_ROUTE_POINTS = 200
 
   const decimated = decimate(coords, MAX_ROUTE_POINTS)
 

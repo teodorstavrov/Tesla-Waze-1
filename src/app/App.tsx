@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import type { Map as LMap } from 'leaflet'
 
 import { MapShell }            from '@/components/MapShell'
@@ -104,11 +104,16 @@ export function App() {
   const route  = useRouteStore((s) => s.route)
   const events = useEventStore((s) => s.events)
 
-  // ── Derived ────────────────────────────────────────────────────────────────
-  const filteredStations = useMemo(
-    () => applyFilter(stations, filterMode, route),
-    [stations, filterMode, route],
-  )
+  // ── Derived — async so heavy route filtering never blocks the main thread ──
+  const [filteredStations, setFilteredStations] = useState(stations)
+  useEffect(() => {
+    let cancelled = false
+    // Yield to the browser first, then compute (prevents Page Unresponsive)
+    const id = setTimeout(() => {
+      if (!cancelled) setFilteredStations(applyFilter(stations, filterMode, route))
+    }, 0)
+    return () => { cancelled = true; clearTimeout(id) }
+  }, [stations, filterMode, route])
 
   useAutoRefresh(map, trigger)
 

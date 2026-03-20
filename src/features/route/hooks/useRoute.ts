@@ -28,7 +28,7 @@ export function useRoute() {
     try {
       const url = `https://router.project-osrm.org/route/v1/driving/` +
         `${origin.lng},${origin.lat};${destination.lng},${destination.lat}` +
-        `?overview=full&geometries=geojson&steps=false`
+        `?overview=simplified&geometries=geojson&steps=false`
 
       const res = await fetch(url)
       if (!res.ok) throw new Error(`OSRM ${res.status}`)
