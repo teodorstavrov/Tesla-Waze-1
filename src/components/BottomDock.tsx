@@ -16,6 +16,16 @@ interface Props {
   stations: EVStation[]
 }
 
+function formatDist(m: number): string {
+  return m >= 1000 ? `${(m / 1000).toFixed(1)} км` : `${Math.round(m)} м`
+}
+
+function formatDur(s: number): string {
+  const h = Math.floor(s / 3600)
+  const min = Math.round((s % 3600) / 60)
+  return h > 0 ? `${h} ч ${min} мин` : `${min} мин`
+}
+
 export function BottomDock({ map, stations }: Props) {
   const [evOpen, setEvOpen] = useState(false)
   const route    = useRouteStore((s) => s.route)
@@ -43,17 +53,24 @@ export function BottomDock({ map, stations }: Props) {
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-3">
         {/* Cancel navigation strip */}
         {route && (
-          <button
-            onClick={cancelNav}
-            onTouchEnd={(e) => e.stopPropagation()}
-            className="glass-card flex items-center gap-2 px-5 h-10
-                       active:scale-95 transition-transform duration-100 select-none"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M2 2l10 10M12 2L2 12" stroke="#e31937" strokeWidth="1.8" strokeLinecap="round"/>
-            </svg>
-            <span className="text-[12px] font-semibold text-tesla-text">Спри навигацията</span>
-          </button>
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="glass-card px-4 py-1.5 text-[13px] font-bold text-tesla-text tracking-wide">
+              {formatDist(route.distanceM)}
+              <span className="opacity-50 font-normal mx-1">·</span>
+              {formatDur(route.durationS)}
+            </div>
+            <button
+              onClick={cancelNav}
+              onTouchEnd={(e) => e.stopPropagation()}
+              className="glass-card flex items-center gap-2 px-5 h-10
+                         active:scale-95 transition-transform duration-100 select-none"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M2 2l10 10M12 2L2 12" stroke="#e31937" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+              <span className="text-[12px] font-semibold text-tesla-text">Спри навигацията</span>
+            </button>
+          </div>
         )}
 
         {/* Two main buttons */}

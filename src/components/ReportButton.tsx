@@ -13,7 +13,7 @@ const EVENT_CONFIG: Array<{ type: EventType; label: string; colour: string; icon
   {
     type: 'police', label: 'Полиция', colour: '#3d9df3',
     icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <svg width="26" height="26" viewBox="0 0 20 20" fill="none">
         {/* Head */}
         <circle cx="10" cy="13.5" r="4.5" stroke="currentColor" strokeWidth="1.4"/>
         {/* Hat brim */}
@@ -28,7 +28,7 @@ const EVENT_CONFIG: Array<{ type: EventType; label: string; colour: string; icon
   {
     type: 'camera', label: 'Камера', colour: '#8e44ad',
     icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <svg width="26" height="26" viewBox="0 0 20 20" fill="none">
         {/* Body */}
         <rect x="1" y="6" width="13" height="9.5" rx="2" stroke="currentColor" strokeWidth="1.4"/>
         {/* Lens */}
@@ -44,7 +44,7 @@ const EVENT_CONFIG: Array<{ type: EventType; label: string; colour: string; icon
   {
     type: 'accident', label: 'Катастрофа', colour: '#e31937',
     icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <svg width="26" height="26" viewBox="0 0 20 20" fill="none">
         {/* Shield */}
         <path d="M10 1.5l7.5 3.5v6C17.5 15 14 18 10 19 6 18 2.5 15 2.5 11V5z"
               stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
@@ -57,7 +57,7 @@ const EVENT_CONFIG: Array<{ type: EventType; label: string; colour: string; icon
   {
     type: 'danger', label: 'Опасност', colour: '#f5a623',
     icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <svg width="26" height="26" viewBox="0 0 20 20" fill="none">
         {/* Bold triangle */}
         <path d="M10 2L19 17.5H1L10 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
         {/* Exclamation */}
@@ -95,8 +95,8 @@ export function ReportButton({ map }: Props) {
       {open && (
         <div
           className="fixed inset-0 z-[999]"
+          onTouchStart={() => setOpen(false)}
           onClick={() => setOpen(false)}
-          onTouchEnd={() => setOpen(false)}
         />
       )}
 
@@ -104,36 +104,37 @@ export function ReportButton({ map }: Props) {
       {open && (
         <div
           className="absolute bottom-full mb-3 glass-card overflow-hidden z-[1001]"
-          style={{ width: '192px' }}
+          style={{ width: '224px' }}
         >
           <div className="grid grid-cols-2">
             {EVENT_CONFIG.map(({ type, label, colour, icon }) => (
               <button
                 key={type}
                 onClick={() => report(type)}
-                onTouchEnd={(e) => e.stopPropagation()}
-                className="flex flex-col items-center justify-center gap-1.5
+                onTouchEnd={(e) => { e.stopPropagation(); report(type) }}
+                className="flex flex-col items-center justify-center gap-2
                            border-r border-b border-tesla-border last:border-r-0
                            [&:nth-child(2)]:border-r-0 [&:nth-child(3)]:border-b-0 [&:nth-child(4)]:border-b-0
                            active:bg-tesla-surface"
-                style={{ height: '76px', color: colour }}
+                style={{ height: '96px', color: colour }}
               >
                 {icon}
-                <span className="text-[11px] font-semibold" style={{ color: colour }}>{label}</span>
+                <span className="text-[12px] font-semibold" style={{ color: colour }}>{label}</span>
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* Main button */}
+      {/* Main button — above backdrop */}
       <button
         onClick={() => setOpen((o) => !o)}
-        onTouchEnd={(e) => e.stopPropagation()}
+        onTouchEnd={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
         aria-label="Сигнал"
         title={syncError ? 'Backend недостъпен' : 'Добави сигнал'}
         style={{
           position: 'relative',
+          zIndex: 1001,
           width: 76, height: 76,
           borderRadius: 20,
           background: open
