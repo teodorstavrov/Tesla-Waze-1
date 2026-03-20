@@ -9,6 +9,22 @@ import type { EventType }        from '@/features/events/types'
 
 interface Props { map: LMap | null }
 
+function playBeep() {
+  try {
+    const ctx = new AudioContext()
+    const osc  = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type = 'sine'
+    osc.frequency.value = 880
+    gain.gain.setValueAtTime(0.25, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.18)
+  } catch { /* ignore */ }
+}
+
 const EVENT_CONFIG: Array<{ type: EventType; label: string; colour: string; icon: JSX.Element }> = [
   {
     type: 'police', label: 'Полиция', colour: '#3d9df3',
@@ -76,7 +92,7 @@ export function ReportButton({ map }: Props) {
   const report = useCallback((type: EventType) => {
     setOpen(false)
     if (!map) return
-    const place = (lat: number, lng: number) => addEvent(type, lat, lng)
+    const place = (lat: number, lng: number) => { addEvent(type, lat, lng); playBeep() }
     const fallback = () => { const c = map.getCenter(); place(c.lat, c.lng) }
     if (!navigator.geolocation) { fallback(); return }
     let settled = false

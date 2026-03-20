@@ -10,9 +10,10 @@ export interface EventBBox {
 interface EventState {
   events:      ReportedEvent[]
   syncError:   boolean          // true when backend is unreachable
-  addEvent:    (type: EventType, lat: number, lng: number) => Promise<void>
-  removeEvent: (id: string) => Promise<void>
-  loadEvents:  (bbox?: EventBBox) => Promise<void>
+  addEvent:     (type: EventType, lat: number, lng: number) => Promise<void>
+  removeEvent:  (id: string) => Promise<void>
+  confirmEvent: (id: string) => Promise<void>
+  loadEvents:   (bbox?: EventBBox) => Promise<void>
 }
 
 // Abort any in-flight request before starting a new one
@@ -49,9 +50,10 @@ export const useEventStore = create<EventState>((set) => ({
 
   addEvent: async (type, lat, lng) => {
     const ev: ReportedEvent = {
-      id:        `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      id:            `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       type, lat, lng,
-      timestamp: Date.now(),
+      timestamp:     Date.now(),
+      confirmations: 0,
     }
     set((s) => ({ events: [...s.events, ev] }))
     try {
@@ -74,6 +76,17 @@ export const useEventStore = create<EventState>((set) => ({
     } catch (err) {
       console.warn('[events] DELETE error', err)
     }
+  },
+
+  confirmEvent: async (id: string) => {
+    set((s) => ({
+      events: s.events.map((e) =>
+        e.id === id ? { ...e, confirmations: (e.confirmations ?? 0) + 1 } : e
+      ),
+    }))
+    try {
+      await fetch(`${API}/${id}`, { method: 'PATCH' })
+    } catch { /* optimistic — ignore */ }
   },
 }))
 

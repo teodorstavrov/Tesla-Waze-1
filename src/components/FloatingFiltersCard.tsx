@@ -29,6 +29,8 @@ export function FloatingFiltersCard({
       tesla:       stationCounts.tesla,
       'non-tesla': stationCounts.nonTesla,
       available:   stationCounts.available,
+      fast:        0,
+      ultrafast:   0,
     }
     return map[mode]
   }

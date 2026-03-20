@@ -11,11 +11,12 @@
 import { redis, EVENTS_KEY } from './redis.js'
 
 export interface StoredEvent {
-  id:        string
-  type:      string
-  lat:       number
-  lng:       number
-  timestamp: number
+  id:            string
+  type:          string
+  lat:           number
+  lng:           number
+  timestamp:     number
+  confirmations: number
 }
 
 export const eventsStore = {
@@ -31,5 +32,14 @@ export const eventsStore = {
 
   async remove(id: string): Promise<void> {
     await redis.hdel(EVENTS_KEY, id)
+  },
+
+  async confirm(id: string): Promise<void> {
+    const hash = await redis.hgetall<Record<string, StoredEvent>>(EVENTS_KEY)
+    if (!hash) return
+    const ev = hash[id]
+    if (!ev) return
+    ev.confirmations = (ev.confirmations ?? 0) + 1
+    await redis.hset(EVENTS_KEY, { [id]: ev })
   },
 }

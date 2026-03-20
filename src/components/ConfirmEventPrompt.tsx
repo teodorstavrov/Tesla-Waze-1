@@ -4,6 +4,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import type { ReportedEvent, EventType } from '@/features/events/types'
+import { useEventStore } from '@/features/events/store'
 
 interface Props {
   event:        ReportedEvent
@@ -28,6 +29,7 @@ const COLOURS: Record<EventType, string> = {
 }
 
 export function ConfirmEventPrompt({ event, onStillThere, onRemove }: Props) {
+  const confirmEvent = useEventStore((s) => s.confirmEvent)
   const [remaining, setRemaining] = useState(TIMEOUT_S)
   const timerRef   = useRef<ReturnType<typeof setInterval>>()
   const dismissRef = useRef(onStillThere)
@@ -86,11 +88,18 @@ export function ConfirmEventPrompt({ event, onStillThere, onRemove }: Props) {
             Все още ли е там? ({remaining}с)
           </p>
 
+          {/* Confirmation count */}
+          {event.confirmations > 0 && (
+            <div className="text-center text-[11px] text-tesla-subtle mt-3">
+              {event.confirmations} потвърждени
+            </div>
+          )}
+
           {/* Buttons */}
           <div className="flex gap-3">
             <button
-              onClick={onStillThere}
-              onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); onStillThere() }}
+              onClick={() => { confirmEvent(event.id); onStillThere() }}
+              onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); confirmEvent(event.id); onStillThere() }}
               className="flex-1 h-12 rounded-xl text-[14px] font-semibold
                          bg-tesla-surface border border-tesla-border text-tesla-text
                          active:scale-95 transition-transform"

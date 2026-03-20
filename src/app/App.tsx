@@ -28,6 +28,7 @@ import { useRoute }                                from '@/features/route/hooks/
 import { useEventStore }                           from '@/features/events/store'
 import type { ReportedEvent }                      from '@/features/events/types'
 import { useThemeStore }                           from '@/features/theme/store'
+import { useSunTheme }                             from '@/features/theme/useSunTheme'
 import { useProximityAlerts, unlockAudio } from '@/features/alerts/useProximityAlerts'
 
 export function App() {
@@ -105,6 +106,7 @@ export function App() {
   const removeEvent = useEventStore((s) => s.removeEvent)
 
   // ── Theme ──────────────────────────────────────────────────────────────────
+  useSunTheme()
   const isDark       = useThemeStore((s) => s.isDark)
   const toggleTheme  = useThemeStore((s) => s.toggle)
 

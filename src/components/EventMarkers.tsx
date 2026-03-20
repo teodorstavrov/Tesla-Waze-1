@@ -138,14 +138,16 @@ export function EventMarkers({ map, events }: Props) {
         zIndexOffset: 700,
       })
 
-      const age    = formatAge(ev.timestamp)
-      const colour = COLOURS[ev.type]
-      const label  = LABELS[ev.type]
+      const age          = formatAge(ev.timestamp)
+      const colour       = COLOURS[ev.type]
+      const label        = LABELS[ev.type]
+      const confirmCount = ev.confirmations ?? 0
 
       marker.bindPopup(`
         <div style="font-family:system-ui,sans-serif;min-width:140px">
           <div style="font-size:14px;font-weight:600;color:${colour};margin-bottom:4px">${label}</div>
-          <div style="font-size:12px;color:#8a8a8a;margin-bottom:10px">${age}</div>
+          <div style="font-size:12px;color:#8a8a8a;margin-bottom:6px">${age}</div>
+          ${confirmCount > 0 ? `<div style="font-size:12px;color:#3dd68c;margin-bottom:8px">✓ ${confirmCount} потвърждения</div>` : ''}
           <button onclick="document.dispatchEvent(new CustomEvent('removeEvent',{detail:'${ev.id}'}));"
                   style="width:100%;height:36px;background:rgba(227,25,55,0.12);border:none;
                          border-radius:6px;color:#e31937;font-size:12px;font-weight:600;cursor:pointer">

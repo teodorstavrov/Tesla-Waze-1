@@ -56,4 +56,4 @@ export interface StationsResponse {
 }
 
 /** Filter state */
-export type FilterMode = 'all' | 'tesla' | 'non-tesla' | 'available'
+export type FilterMode = 'all' | 'tesla' | 'non-tesla' | 'available' | 'fast' | 'ultrafast'

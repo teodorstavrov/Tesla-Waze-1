@@ -68,12 +68,13 @@ export function MapShell({ isDark, onMapReady, onBoundsChange }: Props) {
     mapRef.current  = map
     tileRef.current = tile
 
+    // Load data immediately at default center, then refine with GPS
+    onMapReady(map)
     navigator.geolocation?.getCurrentPosition(
       (pos) => {
         map.setView([pos.coords.latitude, pos.coords.longitude], DEFAULT_ZOOM, { animate: false })
-        onMapReady(map)
       },
-      () => onMapReady(map),
+      () => { /* stay at default center */ },
       { timeout: 5_000, maximumAge: 60_000, enableHighAccuracy: false },
     )
 

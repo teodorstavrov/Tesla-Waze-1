@@ -17,7 +17,9 @@ export function applyFilter(
   switch (mode) {
     case 'tesla':     result = stations.filter((s) => s.isTesla);              break
     case 'non-tesla': result = stations.filter((s) => !s.isTesla);             break
-    case 'available': result = stations.filter((s) => s.availablePorts > 0);   break
+    case 'available': result = stations.filter((s) => s.availablePorts > 0);                          break
+    case 'fast':      result = stations.filter((s) => s.connectors.some((c) => c.powerKw >= 50));   break
+    case 'ultrafast': result = stations.filter((s) => s.connectors.some((c) => c.powerKw >= 150));  break
     default:          result = stations
   }
 
