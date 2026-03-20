@@ -14,6 +14,7 @@ import { L }                       from '@/lib/leaflet'
 import { geocode, type GeoResult } from '@/lib/nominatim'
 import { searchStations }          from '@/lib/evSearch'
 import type { StationSearchResult } from '@/lib/evSearch'
+import { haversine }               from '@/lib/haversine'
 
 interface Props {
   map:     LMap | null
@@ -109,6 +110,15 @@ export function SearchBar({ map, onPlace }: Props) {
           geocode(q).catch(() => [] as GeoResult[]),
           searchStations(q).catch(() => [] as StationSearchResult[]),
         ])
+
+        // Sort by distance from map center (or GPS if available)
+        const ref = map?.getCenter()
+        if (ref) {
+          const dist = (lat: number, lng: number) => haversine(ref.lat, ref.lng, lat, lng)
+          geoList.sort((a, b) => dist(a.lat, a.lng) - dist(b.lat, b.lng))
+          evList.sort((a, b)  => dist(a.lat, a.lng) - dist(b.lat, b.lng))
+        }
+
         setPlaces(geoList)
         setEvResults(evList)
         setStatus(geoList.length === 0 && evList.length === 0 ? 'empty' : 'idle')
