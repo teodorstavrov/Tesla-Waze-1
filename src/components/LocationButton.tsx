@@ -10,6 +10,7 @@
 import { useState, useRef } from 'react'
 import type { Map as LMap, Marker } from 'leaflet'
 import { L } from '@/lib/leaflet'
+import { useRouteStore } from '@/features/route/store'
 
 interface Props { map: LMap | null }
 
@@ -31,7 +32,9 @@ function youAreHereIcon() {
 export function LocationButton({ map }: Props) {
   const [state,    setState]    = useState<'idle' | 'locating' | 'error'>('idle')
   const [errMsg,   setErrMsg]   = useState('')
-  const dotRef = useRef<Marker | null>(null)
+  const dotRef    = useRef<Marker | null>(null)
+  const setRoute  = useRouteStore((s) => s.setRoute)
+  const hasRoute  = useRouteStore((s) => s.route !== null)
 
   const placeDot = (lat: number, lng: number) => {
     dotRef.current?.remove()
@@ -41,6 +44,8 @@ export function LocationButton({ map }: Props) {
 
   const locate = () => {
     if (!map || state === 'locating') return
+    // Clear active route before locating
+    if (hasRoute) setRoute(null)
 
     if (!navigator.geolocation) {
       setErrMsg('Geolocation unavailable')
