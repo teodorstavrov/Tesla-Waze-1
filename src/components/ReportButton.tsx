@@ -142,11 +142,11 @@ export function ReportButton({ map }: Props) {
           width: 96, height: 96,
           borderRadius: 24,
           background: open
-            ? 'rgba(200,200,210,0.18)'
-            : 'rgba(230,230,240,0.13)',
+            ? 'rgba(200,200,210,0.10)'
+            : 'rgba(230,230,240,0.07)',
           boxShadow: open
-            ? 'inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 16px rgba(0,0,0,0.35)'
-            : 'inset 0 1px 0 rgba(255,255,255,0.3), 0 4px 24px rgba(0,0,0,0.4)',
+            ? 'inset 0 1px 0 rgba(255,255,255,0.18), 0 2px 16px rgba(0,0,0,0.28)'
+            : 'inset 0 1px 0 rgba(255,255,255,0.22), 0 4px 24px rgba(0,0,0,0.32)',
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center', gap: 6,
           border: '1px solid rgba(255,255,255,0.22)',
@@ -176,11 +176,11 @@ function FlagIcon() {
   return (
     <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
       {/* Pole */}
-      <line x1="8" y1="5" x2="8" y2="30" stroke="rgba(255,255,255,0.9)" strokeWidth="2.2" strokeLinecap="round"/>
-      {/* Flag body */}
-      <path d="M8 6 L26 10 L8 18 Z" fill="rgba(255,255,255,0.92)" />
+      <line x1="8" y1="4" x2="8" y2="31" stroke="rgba(20,20,20,0.95)" strokeWidth="2.4" strokeLinecap="round"/>
+      {/* Flag body — red */}
+      <path d="M8 5 L27 10 L8 19 Z" fill="#e31937"/>
       {/* Flag shine */}
-      <path d="M8 6 L26 10 L17 14 Z" fill="rgba(255,255,255,0.35)" />
+      <path d="M8 5 L27 10 L17 13 Z" fill="rgba(255,255,255,0.22)"/>
     </svg>
   )
 }

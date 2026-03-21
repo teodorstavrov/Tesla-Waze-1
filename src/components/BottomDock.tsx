@@ -87,11 +87,11 @@ export function BottomDock({ map, stations }: Props) {
               width: 96, height: 96,
               borderRadius: 24,
               background: evOpen
-                ? 'rgba(200,200,210,0.18)'
-                : 'rgba(230,230,240,0.13)',
+                ? 'rgba(200,200,210,0.10)'
+                : 'rgba(230,230,240,0.07)',
               boxShadow: evOpen
-                ? 'inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 16px rgba(0,0,0,0.35)'
-                : 'inset 0 1px 0 rgba(255,255,255,0.3), 0 4px 24px rgba(0,0,0,0.4)',
+                ? 'inset 0 1px 0 rgba(255,255,255,0.18), 0 2px 16px rgba(0,0,0,0.28)'
+                : 'inset 0 1px 0 rgba(255,255,255,0.22), 0 4px 24px rgba(0,0,0,0.32)',
               display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center', gap: 6,
               border: '1px solid rgba(255,255,255,0.22)',
@@ -114,17 +114,17 @@ export function BottomDock({ map, stations }: Props) {
 
 function BatteryIcon() {
   return (
-    <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+    <svg width="42" height="42" viewBox="0 0 42 42" fill="none">
       {/* Battery body */}
-      <rect x="2" y="10" width="26" height="16" rx="4"
-            fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.85)" strokeWidth="2"/>
+      <rect x="2" y="11" width="30" height="20" rx="4.5"
+            fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.82)" strokeWidth="2.2"/>
       {/* Battery tip */}
-      <path d="M28 15v6" stroke="rgba(255,255,255,0.85)" strokeWidth="3" strokeLinecap="round"/>
+      <path d="M32 17.5v7" stroke="rgba(255,255,255,0.82)" strokeWidth="3.2" strokeLinecap="round"/>
       {/* Green fill */}
-      <rect x="4" y="12" width="20" height="12" rx="2.5" fill="#22c55e" opacity="0.85"/>
+      <rect x="4.5" y="13.5" width="23" height="15" rx="3" fill="#22c55e" opacity="0.88"/>
       {/* Lightning bolt — white */}
-      <path d="M17 14l-3 5h3.5l-2 6 6.5-8H18l2-3z"
-            fill="white" opacity="0.95"/>
+      <path d="M19.5 16l-4 6.5h4.5l-2.5 7.5 8-9.5h-5l2.5-4.5z"
+            fill="white" opacity="0.97"/>
     </svg>
   )
 }
