@@ -1,3 +1,8 @@
+/**
+ * Traffic alerts store — fetches from TomTom via /api/traffic/incidents.
+ * Waze is inaccessible (CORS + cloud IP block). TomTom works server-side.
+ * Normalized to WazeAlert shape so WazeMarkers renders without changes.
+ */
 import { create } from 'zustand'
 import type { WazeAlert, WazeType } from './types'
 
@@ -8,21 +13,25 @@ interface WazeState {
   load:   (bbox: BBox) => Promise<void>
 }
 
-// Waze blocks server-side requests from cloud IPs (AWS/Vercel).
-// We fetch directly from the browser — real IP, real browser UA.
-const WAZE_ENDPOINTS = [
-  'https://www.waze.com/row-lm/api/georss',
-  'https://www.waze.com/live-map/api/georss',
-]
+// TomTom iconCategory → our WazeType
+type TomTomType =
+  | 'ACCIDENT' | 'FOG' | 'DANGEROUS_CONDITIONS' | 'RAIN' | 'ICE'
+  | 'JAM' | 'LANE_CLOSED' | 'ROAD_CLOSED' | 'ROAD_WORKS'
+  | 'WIND' | 'FLOODING' | 'DETOUR' | 'OTHER'
 
-function normalizeType(raw: string): WazeType {
-  switch (raw) {
-    case 'POLICE':      return 'POLICE'
-    case 'ACCIDENT':    return 'ACCIDENT'
-    case 'HAZARD':      return 'HAZARD'
-    case 'JAM':         return 'JAM'
-    case 'ROAD_CLOSED': return 'ROAD_CLOSED'
-    default:            return 'OTHER'
+function toWazeType(t: TomTomType): WazeType | null {
+  switch (t) {
+    case 'ACCIDENT':             return 'ACCIDENT'
+    case 'ROAD_CLOSED':
+    case 'LANE_CLOSED':          return 'ROAD_CLOSED'
+    case 'DANGEROUS_CONDITIONS':
+    case 'FOG':
+    case 'RAIN':
+    case 'ICE':
+    case 'WIND':
+    case 'FLOODING':
+    case 'ROAD_WORKS':           return 'HAZARD'
+    default:                     return null   // JAM, DETOUR, OTHER — skip
   }
 }
 
@@ -36,48 +45,42 @@ export const useWazeStore = create<WazeState>((set) => ({
     _abort = new AbortController()
     const { signal } = _abort
 
-    const params = new URLSearchParams({
-      top:   String(bbox.maxLat),
-      bottom: String(bbox.minLat),
-      left:  String(bbox.minLng),
-      right: String(bbox.maxLng),
-      env:   'row',
-      types: 'alerts',
-    })
+    try {
+      const params = new URLSearchParams({
+        north: String(bbox.maxLat),
+        south: String(bbox.minLat),
+        east:  String(bbox.maxLng),
+        west:  String(bbox.minLng),
+      })
+      const res = await fetch(`/api/traffic/incidents?${params}`, { signal })
+      if (!res.ok) return
 
-    for (const base of WAZE_ENDPOINTS) {
-      try {
-        const res = await fetch(`${base}?${params}`, { signal })
-        if (!res.ok) continue
+      const data = await res.json()
+      const incidents: Array<{
+        id: string; type: TomTomType; lat: number; lng: number
+        description: string; from: string; magnitude: number
+      }> = data.incidents ?? []
 
-        const data = await res.json()
-        const raw: Array<{
-          uuid: string; type: string; subtype?: string
-          location: { x: number; y: number }
-          street?: string; reliability: number
-          nThumbsUp?: number; pubMillis: number
-        }> = data.alerts ?? []
-
-        set({
-          alerts: raw.map((a) => ({
-            uuid:        a.uuid,
-            type:        normalizeType(a.type),
-            subtype:     a.subtype ?? '',
-            lat:         a.location.y,
-            lng:         a.location.x,
-            street:      a.street ?? '',
-            reliability: a.reliability,
-            thumbsUp:    a.nThumbsUp ?? 0,
-            pubMillis:   a.pubMillis,
-          })),
+      const alerts: WazeAlert[] = []
+      for (const inc of incidents) {
+        const wtype = toWazeType(inc.type)
+        if (!wtype) continue
+        alerts.push({
+          uuid:        inc.id,
+          type:        wtype,
+          subtype:     inc.type,
+          lat:         inc.lat,
+          lng:         inc.lng,
+          street:      inc.from || inc.description || '',
+          reliability: inc.magnitude * 2,   // 0–4 → 0–8 (rough scale)
+          thumbsUp:    0,
+          pubMillis:   Date.now(),
         })
-        return
-      } catch (err) {
-        if ((err as Error).name === 'AbortError') return
-        console.warn(`[waze] ${base} failed:`, (err as Error).message)
       }
-    }
 
-    console.warn('[waze] all endpoints failed — browser may be blocking cross-origin request')
+      set({ alerts })
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') console.warn('[traffic] fetch failed', err)
+    }
   },
 }))
