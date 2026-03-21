@@ -17,6 +17,7 @@ import { LoadingOverlay }      from '@/components/LoadingOverlay'
 import { ErrorBanner }         from '@/components/ErrorBanner'
 import { SirenOverlay }        from '@/components/SirenOverlay'
 import { ConfirmEventPrompt }  from '@/components/ConfirmEventPrompt'
+import { AdminPanel }          from '@/components/AdminPanel'
 
 import { useEVStore }                              from '@/features/ev/store'
 import { useEVPolling }                            from '@/features/ev/hooks/useEVPolling'
@@ -187,6 +188,9 @@ export function App() {
       {/* Status */}
       <LoadingOverlay visible={loading && stations.length === 0} />
       <ErrorBanner message={error} onDismiss={() => setError(null)} onRetry={handleRetry} />
+
+      {/* Admin mode (only when URL has ?admin) */}
+      <AdminPanel map={map} />
 
       {/* Police siren flash */}
       <SirenOverlay active={siren} onDone={() => setSiren(false)} />
