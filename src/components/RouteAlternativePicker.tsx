@@ -26,11 +26,10 @@ export function RouteAlternativePicker({ alternatives, onSelect, onCancel }: Pro
   return (
     <div style={{
       position:  'fixed',
-      bottom:    130,
-      left:      '50%',
-      transform: 'translateX(-50%)',
+      top:       100,   // below the Tesla EV Nav banner (~top-4 + ~80px card height)
+      left:      16,
       zIndex:    2500,
-      width:     'min(460px, calc(100vw - 32px))',
+      width:     'min(300px, calc(100vw - 32px))',
     }}>
       <div style={{
         background:   'rgba(14,18,26,0.97)',
@@ -67,68 +66,65 @@ export function RouteAlternativePicker({ alternatives, onSelect, onCancel }: Pro
           </button>
         </div>
 
-        {/* Route options */}
-        <div style={{ display: 'flex', gap: 0 }}>
+        {/* Route options — vertical list */}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
           {alternatives.map((alt, i) => (
             <button
               key={i}
               onClick={() => onSelect(alt)}
               onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); onSelect(alt) }}
               style={{
-                flex:           1,
-                padding:        '18px 12px 20px',
-                background:     'transparent',
-                border:         'none',
-                borderRight:    i === 0 ? '1px solid rgba(255,255,255,0.07)' : 'none',
-                cursor:         'pointer',
-                display:        'flex',
-                flexDirection:  'column',
-                alignItems:     'center',
-                gap:            6,
-                transition:     'background 0.15s',
+                padding:       '14px 16px',
+                background:    'transparent',
+                border:        'none',
+                borderBottom:  i === 0 ? '1px solid rgba(255,255,255,0.07)' : 'none',
+                cursor:        'pointer',
+                display:       'flex',
+                alignItems:    'center',
+                gap:           12,
+                transition:    'background 0.15s',
+                textAlign:     'left',
               }}
               onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
               onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
-              {/* Color indicator line */}
+              {/* Color stripe */}
               <div style={{
-                width:        i === 0 ? 48 : 48,
-                height:       4,
+                width:        4,
+                height:       40,
                 borderRadius: 2,
-                background:   ACCENT[i],
-                opacity:      i === 0 ? 1 : 0.55,
-                marginBottom: 6,
-                ...(i === 1 ? { backgroundImage: 'repeating-linear-gradient(90deg,#a0a0b0 0,#a0a0b0 10px,transparent 10px,transparent 18px)', background: 'none' } : {}),
+                flexShrink:   0,
+                background:   i === 0 ? ACCENT[0] : 'none',
+                opacity:      i === 0 ? 1 : 0.6,
+                ...(i === 1 ? { backgroundImage: 'repeating-linear-gradient(180deg,#a0a0b0 0,#a0a0b0 6px,transparent 6px,transparent 10px)' } : {}),
               }} />
 
-              <div style={{ color: ACCENT[i], fontWeight: 700, fontSize: 13, letterSpacing: '0.04em', opacity: i === 0 ? 1 : 0.75 }}>
-                {i === 0 ? 'МАРШРУТ 1' : 'МАРШРУТ 2'}
-              </div>
-
-              {/* Time — big */}
-              <div style={{ color: 'white', fontWeight: 800, fontSize: 28, lineHeight: 1, marginTop: 4 }}>
-                {dur(alt.durationS)}
-              </div>
-
-              {/* Distance — small */}
-              <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginTop: 2 }}>
-                {fmt(alt.distanceM)}
-              </div>
-
-              {i === 0 && (
-                <div style={{
-                  marginTop:    6,
-                  background:   'rgba(61,157,243,0.18)',
-                  border:       '1px solid rgba(61,157,243,0.35)',
-                  borderRadius: 10,
-                  padding:      '3px 10px',
-                  fontSize:     11,
-                  color:        '#3d9df3',
-                  fontWeight:   600,
-                }}>
-                  По-бърз
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                  <span style={{ color: ACCENT[i], fontWeight: 700, fontSize: 12, letterSpacing: '0.04em', opacity: i === 0 ? 1 : 0.7 }}>
+                    {i === 0 ? 'МАРШРУТ 1' : 'МАРШРУТ 2'}
+                  </span>
+                  {i === 0 && (
+                    <span style={{
+                      background: 'rgba(61,157,243,0.18)', border: '1px solid rgba(61,157,243,0.35)',
+                      borderRadius: 8, padding: '1px 7px', fontSize: 10, color: '#3d9df3', fontWeight: 600,
+                    }}>По-бърз</span>
+                  )}
                 </div>
-              )}
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <span style={{ color: 'white', fontWeight: 800, fontSize: 22, lineHeight: 1 }}>
+                    {dur(alt.durationS)}
+                  </span>
+                  <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13 }}>
+                    {fmt(alt.distanceM)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Arrow */}
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, opacity: 0.4 }}>
+                <path d="M6 3l5 5-5 5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </button>
           ))}
         </div>
