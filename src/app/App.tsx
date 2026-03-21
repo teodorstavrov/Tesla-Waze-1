@@ -5,7 +5,6 @@ import { MapShell }            from '@/components/MapShell'
 import { EVMarkers }           from '@/components/EVMarkers'
 import { EventMarkers }        from '@/components/EventMarkers'
 import { RouteLayer }          from '@/components/RouteLayer'
-import { WazeMarkers }        from '@/components/WazeMarkers'
 import { HeadingArrow }        from '@/components/HeadingArrow'
 import { BottomDock }          from '@/components/BottomDock'
 import { ThemeToggle }         from '@/components/ThemeToggle'
@@ -23,8 +22,6 @@ import { useEVStore }                              from '@/features/ev/store'
 import { useEVPolling }                            from '@/features/ev/hooks/useEVPolling'
 import { useAutoRefresh }                          from '@/features/ev/hooks/useAutoRefresh'
 import { useEventPolling }                         from '@/features/events/hooks/useEventPolling'
-import { useWazePolling }                          from '@/features/waze/useWazePolling'
-import { useWazeStore }                            from '@/features/waze/store'
 import { applyFilter } from '@/features/ev/selectors'
 import { useRouteStore }                           from '@/features/route/store'
 import { useRoute }                                from '@/features/route/hooks/useRoute'
@@ -39,8 +36,6 @@ export function App() {
   const mapRef           = useRef<LMap | null>(null)
   const { trigger }              = useEVPolling()
   const { trigger: triggerEv }   = useEventPolling()
-  const { trigger: triggerWaze } = useWazePolling()
-  const wazeAlerts               = useWazeStore((s) => s.alerts)
   const [siren,        setSiren]        = useState(false)
   const [confirmEvent, setConfirmEvent] = useState<ReportedEvent | null>(null)
 
@@ -144,14 +139,12 @@ export function App() {
     mapRef.current = m
     trigger(m)
     triggerEv(m)
-    triggerWaze(m)
-  }, [trigger, triggerEv, triggerWaze])
+  }, [trigger, triggerEv])
 
   const handleBoundsChange = useCallback((m: LMap) => {
     trigger(m)
     triggerEv(m)
-    triggerWaze(m)
-  }, [trigger, triggerEv, triggerWaze])
+  }, [trigger, triggerEv])
   const handleRetry        = useCallback(() => {
     setError(null)
     if (mapRef.current) trigger(mapRef.current)
@@ -169,7 +162,6 @@ export function App() {
       {/* Markers */}
       <EVMarkers   map={map} stations={filteredStations} route={route} />
       <EventMarkers map={map} events={events} />
-      <WazeMarkers  map={map} alerts={wazeAlerts} />
 
       {/* Route */}
       <RouteLayer map={map} route={route} />
