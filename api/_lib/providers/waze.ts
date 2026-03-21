@@ -13,6 +13,7 @@ export type WazeAlertType =
   | 'HAZARD'
   | 'JAM'
   | 'ROAD_CLOSED'
+  | 'POLICE'
   | 'OTHER'
 
 export interface WazeAlert {
@@ -105,6 +106,7 @@ function normalizeType(raw: string): WazeAlertType {
     case 'HAZARD':      return 'HAZARD'
     case 'JAM':         return 'JAM'
     case 'ROAD_CLOSED': return 'ROAD_CLOSED'
+    case 'POLICE':      return 'POLICE'
     default:            return 'OTHER'
   }
 }
