@@ -1,6 +1,7 @@
 /**
- * Full-screen confirmation card shown when the user is within 5 m of a
- * reported event. Auto-dismisses after 10 s. Only "Remove" deletes the marker.
+ * ConfirmEventPrompt — Waze-style card shown when near a reported event.
+ * Positioned bottom-center above the main dock buttons.
+ * Auto-dismisses after 10 s.
  */
 import { useEffect, useRef, useState } from 'react'
 import type { ReportedEvent, EventType } from '@/features/events/types'
@@ -21,11 +22,11 @@ const LABELS: Record<EventType, string> = {
   camera:   'Камера',
 }
 
-const COLOURS: Record<EventType, string> = {
-  police:   '#3d9df3',
-  danger:   '#f5a623',
-  accident: '#e31937',
-  camera:   '#8e44ad',
+const ICONS: Record<EventType, string> = {
+  police:   '🚔',
+  danger:   '⚠️',
+  accident: '💥',
+  camera:   '📷',
 }
 
 export function ConfirmEventPrompt({ event, onStillThere, onRemove }: Props) {
@@ -39,87 +40,91 @@ export function ConfirmEventPrompt({ event, onStillThere, onRemove }: Props) {
     setRemaining(TIMEOUT_S)
     timerRef.current = setInterval(() => {
       setRemaining((s) => {
-        if (s <= 1) {
-          clearInterval(timerRef.current)
-          dismissRef.current()
-          return 0
-        }
+        if (s <= 1) { clearInterval(timerRef.current); dismissRef.current(); return 0 }
         return s - 1
       })
     }, 1_000)
     return () => clearInterval(timerRef.current)
-  }, [event.id]) // reset when a different event triggers
+  }, [event.id])
 
-  const colour = COLOURS[event.type]
-  const label  = LABELS[event.type]
+  const label = LABELS[event.type]
+  const icon  = ICONS[event.type]
 
   return (
     <div
-      className="absolute inset-0 z-[2500] flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.72)' }}
+      style={{
+        position: 'fixed',
+        bottom: 130,          // above the 96px dock buttons + gap
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 2500,
+        width: 'min(420px, calc(100vw - 32px))',
+      }}
     >
-      <div className="glass-card mx-4 w-full max-w-xs overflow-hidden">
-        {/* Progress bar — shrinks over 10 s */}
-        <div
-          className="h-1 transition-none"
-          style={{
-            width:      `${(remaining / TIMEOUT_S) * 100}%`,
-            background: colour,
-            transition: 'width 1s linear',
-          }}
-        />
-
-        <div className="px-5 py-5">
-          {/* Header */}
-          <div className="flex items-center gap-3 mb-1">
-            <div
-              className="w-3 h-3 rounded-full flex-shrink-0"
-              style={{ background: colour, boxShadow: `0 0 8px ${colour}` }}
-            />
-            <span className="text-[13px] font-semibold uppercase tracking-widest text-tesla-subtle">
-              Сигнал наоколо
-            </span>
-          </div>
-
-          <p className="text-[22px] font-bold mb-1" style={{ color: colour }}>
-            {label}
-          </p>
-          <p className="text-[13px] text-tesla-subtle mb-5">
-            Все още ли е там? ({remaining}с)
-          </p>
-
-          {/* Confirmation count */}
-          {event.confirmations > 0 && (
-            <div className="text-center text-[11px] text-tesla-subtle mt-3">
-              {event.confirmations} потвърждени
+      <div style={{
+        background: 'rgba(22,28,38,0.97)',
+        borderRadius: 18,
+        overflow: 'hidden',
+        boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
+        border: '1px solid rgba(255,255,255,0.1)',
+      }}>
+        {/* Header row */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '18px 20px 10px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 26 }}>{icon}</span>
+            <div>
+              <div style={{ color: 'white', fontWeight: 700, fontSize: 17, lineHeight: 1.2 }}>
+                {label} <span style={{ color: 'rgba(255,255,255,0.5)', fontWeight: 400, fontSize: 13 }}>(reported)</span>
+              </div>
+              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 2 }}>
+                Все още ли е там?
+              </div>
             </div>
-          )}
-
-          {/* Buttons */}
-          <div className="flex gap-3">
-            <button
-              onClick={() => { confirmEvent(event.id); onStillThere() }}
-              onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); confirmEvent(event.id); onStillThere() }}
-              className="flex-1 h-12 rounded-xl text-[14px] font-semibold
-                         bg-tesla-surface border border-tesla-border text-tesla-text
-                         active:scale-95 transition-transform"
-            >
-              Все още е
-            </button>
-            <button
-              onClick={onRemove}
-              onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); onRemove() }}
-              className="flex-1 h-12 rounded-xl text-[14px] font-semibold
-                         active:scale-95 transition-transform"
-              style={{
-                background: 'rgba(227,25,55,0.15)',
-                border:     '1px solid rgba(227,25,55,0.4)',
-                color:      '#e31937',
-              }}
-            >
-              Премахни
-            </button>
           </div>
+          {/* Countdown */}
+          <div style={{ textAlign: 'center', minWidth: 36 }}>
+            <div style={{ color: '#f5c842', fontWeight: 800, fontSize: 26, lineHeight: 1 }}>
+              {remaining}
+            </div>
+            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 1 }}>sec</div>
+          </div>
+        </div>
+
+        {event.confirmations > 0 && (
+          <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 12, paddingBottom: 4 }}>
+            {event.confirmations} потвърждения
+          </div>
+        )}
+
+        {/* Buttons */}
+        <div style={{ display: 'flex', gap: 12, padding: '10px 16px 16px' }}>
+          <button
+            onClick={() => { confirmEvent(event.id); onStillThere() }}
+            onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); confirmEvent(event.id); onStillThere() }}
+            style={{
+              flex: 1, height: 56, borderRadius: 12, border: 'none',
+              background: '#2ea84a', color: 'white',
+              fontSize: 16, fontWeight: 700, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}
+          >
+            <span>✓</span> Все още е
+          </button>
+          <button
+            onClick={onRemove}
+            onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); onRemove() }}
+            style={{
+              flex: 1, height: 56, borderRadius: 12, border: 'none',
+              background: '#b83040', color: 'white',
+              fontSize: 16, fontWeight: 700, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}
+          >
+            <span>🗑</span> Премахни
+          </button>
         </div>
       </div>
     </div>
