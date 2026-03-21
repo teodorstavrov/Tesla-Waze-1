@@ -57,7 +57,12 @@ const BROWSER_HEADERS = {
   'User-Agent':      'Mozilla/5.0 (Linux; Android 10; Tesla) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
 }
 
-export async function fetchWazeAlerts(bbox: BoundingBox): Promise<WazeAlert[]> {
+export interface WazeFetchResult {
+  alerts: WazeAlert[]
+  _debug?: { endpoint: string; status: number; alertCount: number; rawKeys: string[] } | { endpoint: string; error: string }
+}
+
+export async function fetchWazeAlerts(bbox: BoundingBox): Promise<WazeFetchResult> {
   const params = new URLSearchParams({
     top:    String(bbox.north),
     bottom: String(bbox.south),
@@ -74,30 +79,37 @@ export async function fetchWazeAlerts(bbox: BoundingBox): Promise<WazeAlert[]> {
         signal:  AbortSignal.timeout(8_000),
       })
 
-      if (!res.ok) continue
+      if (!res.ok) {
+        console.warn(`[waze] ${base} → HTTP ${res.status}`)
+        continue
+      }
 
       const data: WazeRaw = await res.json()
       const alerts = data.alerts ?? []
 
-      return alerts.map((a) => ({
-        uuid:        a.uuid,
-        type:        normalizeType(a.type),
-        subtype:     a.subtype ?? '',
-        lat:         a.location.y,
-        lng:         a.location.x,
-        street:      a.street ?? '',
-        city:        a.city ?? '',
-        reliability: a.reliability,
-        thumbsUp:    a.nThumbsUp ?? 0,
-        pubMillis:   a.pubMillis,
-      }))
-    } catch {
-      // try next endpoint
+      console.log(`[waze] ${base} → ${alerts.length} alerts, keys: ${Object.keys(data).join(', ')}`)
+
+      return {
+        alerts: alerts.map((a) => ({
+          uuid:        a.uuid,
+          type:        normalizeType(a.type),
+          subtype:     a.subtype ?? '',
+          lat:         a.location.y,
+          lng:         a.location.x,
+          street:      a.street ?? '',
+          city:        a.city ?? '',
+          reliability: a.reliability,
+          thumbsUp:    a.nThumbsUp ?? 0,
+          pubMillis:   a.pubMillis,
+        })),
+        _debug: { endpoint: base, status: res.status, alertCount: alerts.length, rawKeys: Object.keys(data) },
+      }
+    } catch (err) {
+      console.warn(`[waze] ${base} failed:`, err)
     }
   }
 
-  // Both endpoints failed — return empty, overlay is non-critical
-  return []
+  return { alerts: [], _debug: { endpoint: 'all failed', error: 'both endpoints failed or timed out' } }
 }
 
 function normalizeType(raw: string): WazeAlertType {

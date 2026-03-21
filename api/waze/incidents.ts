@@ -28,11 +28,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ alerts: cached })
     }
 
-    const alerts = await fetchWazeAlerts(bbox)
-    cache.set(key, alerts, TTL_MS)
+    const result = await fetchWazeAlerts(bbox)
+    cache.set(key, result.alerts, TTL_MS)
 
     res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60')
-    return res.status(200).json({ alerts })
+    return res.status(200).json({ alerts: result.alerts, _debug: result._debug })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[waze/incidents]', err)
