@@ -4,7 +4,8 @@ import type { Map as LMap } from 'leaflet'
 import { MapShell }            from '@/components/MapShell'
 import { EVMarkers }           from '@/components/EVMarkers'
 import { EventMarkers }        from '@/components/EventMarkers'
-import { RouteLayer }          from '@/components/RouteLayer'
+import { RouteLayer }                from '@/components/RouteLayer'
+import { RouteAlternativePicker }   from '@/components/RouteAlternativePicker'
 import { HeadingArrow }        from '@/components/HeadingArrow'
 import { BottomDock }          from '@/components/BottomDock'
 import { ThemeToggle }         from '@/components/ThemeToggle'
@@ -119,8 +120,11 @@ export function App() {
   const setError      = useEVStore((s) => s.setError)
 
   // ── Route & Events ─────────────────────────────────────────────────────────
-  const route  = useRouteStore((s) => s.route)
-  const events = useEventStore((s) => s.events)
+  const route        = useRouteStore((s) => s.route)
+  const alternatives = useRouteStore((s) => s.alternatives)
+  const setRoute     = useRouteStore((s) => s.setRoute)
+  const setAlts      = useRouteStore((s) => s.setAlternatives)
+  const events       = useEventStore((s) => s.events)
 
   // ── Derived — memoised so EVMarkers only rerenders when the filtered set changes ──
   const filteredStations = useMemo(
@@ -162,7 +166,7 @@ export function App() {
       <EventMarkers map={map} events={events} route={route} />
 
       {/* Route */}
-      <RouteLayer map={map} route={route} />
+      <RouteLayer map={map} route={route} alternatives={alternatives} />
 
       {/* Live position + heading arrow */}
       <HeadingArrow map={map} />
@@ -185,6 +189,15 @@ export function App() {
       {/* Status */}
       <LoadingOverlay visible={loading && stations.length === 0} />
       <ErrorBanner message={error} onDismiss={() => setError(null)} onRetry={handleRetry} />
+
+      {/* Route alternative picker — shown before user picks a route */}
+      {alternatives && !route && (
+        <RouteAlternativePicker
+          alternatives={alternatives}
+          onSelect={(r) => { setRoute(r) }}
+          onCancel={() => setAlts(null)}
+        />
+      )}
 
       {/* Admin mode (only when URL has ?admin) */}
       <AdminPanel map={map} />

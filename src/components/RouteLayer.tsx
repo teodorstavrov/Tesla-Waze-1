@@ -1,6 +1,7 @@
 /**
- * Draws the route polyline + origin/destination markers on the map.
- * Also fits the map bounds to show the full route.
+ * Draws route polyline(s) + origin/destination markers on the map.
+ * - When alternatives[] is set (no active route): draws both as ghost lines, fits to both.
+ * - When route is set: draws the selected route + pins, fits to it.
  */
 import { useEffect, useRef } from 'react'
 import type { Map as LMap, Polyline, Marker } from 'leaflet'
@@ -8,8 +9,9 @@ import { L }                from '@/lib/leaflet'
 import type { Route }       from '@/features/route/types'
 
 interface Props {
-  map:   LMap | null
-  route: Route | null
+  map:          LMap | null
+  route:        Route | null
+  alternatives: Route[] | null
 }
 
 function pinIcon(colour: string, label: string) {
@@ -30,58 +32,72 @@ function pinIcon(colour: string, label: string) {
   })
 }
 
-export function RouteLayer({ map, route }: Props) {
-  const lineRef   = useRef<Polyline | null>(null)
+const COLOURS = ['#3d9df3', '#a0a0b0']
+
+export function RouteLayer({ map, route, alternatives }: Props) {
+  const linesRef   = useRef<Polyline[]>([])
   const markersRef = useRef<Marker[]>([])
 
   useEffect(() => {
     if (!map) return
 
-    // Clear previous
-    lineRef.current?.remove()
+    // Clear everything
+    linesRef.current.forEach((l) => l.remove())
     markersRef.current.forEach((m) => m.remove())
+    linesRef.current  = []
     markersRef.current = []
-    lineRef.current = null
 
-    if (!route) return
+    if (route) {
+      // ── Active route: bright polyline + A/B pins ───────────────────────────
+      const line = L.polyline(route.coordinates, {
+        color:    '#3d9df3',
+        weight:   5,
+        opacity:  0.88,
+        lineJoin: 'round',
+        lineCap:  'round',
+      }).addTo(map)
+      linesRef.current = [line]
 
-    // Draw route polyline
-    lineRef.current = L.polyline(route.coordinates, {
-      color:     '#3d9df3',
-      weight:    5,
-      opacity:   0.85,
-      lineJoin:  'round',
-      lineCap:   'round',
-    }).addTo(map)
+      const originMarker = L.marker([route.origin.lat, route.origin.lng], {
+        icon: pinIcon('#27ae60', 'A'), interactive: true, zIndexOffset: 1000,
+      })
+        .bindPopup(`<div style="font-size:13px;color:#e8e8e8">${route.origin.label}</div>`, { className: 'tesla-popup' })
+        .addTo(map)
 
-    // Origin marker (green A)
-    const originMarker = L.marker([route.origin.lat, route.origin.lng], {
-      icon:         pinIcon('#27ae60', 'A'),
-      interactive:  true,
-      zIndexOffset: 1000,
-    })
-      .bindPopup(`<div style="font-size:13px;color:#e8e8e8">${route.origin.label}</div>`, { className: 'tesla-popup' })
-      .addTo(map)
+      const destMarker = L.marker([route.destination.lat, route.destination.lng], {
+        icon: pinIcon('#e31937', 'B'), interactive: true, zIndexOffset: 1000,
+      })
+        .bindPopup(`<div style="font-size:13px;color:#e8e8e8">${route.destination.label}</div>`, { className: 'tesla-popup' })
+        .addTo(map)
 
-    // Destination marker (red B)
-    const destMarker = L.marker([route.destination.lat, route.destination.lng], {
-      icon:         pinIcon('#e31937', 'B'),
-      interactive:  true,
-      zIndexOffset: 1000,
-    })
-      .bindPopup(`<div style="font-size:13px;color:#e8e8e8">${route.destination.label}</div>`, { className: 'tesla-popup' })
-      .addTo(map)
+      markersRef.current = [originMarker, destMarker]
+      map.fitBounds(line.getBounds(), { padding: [60, 80], animate: true })
 
-    markersRef.current = [originMarker, destMarker]
+    } else if (alternatives?.length) {
+      // ── Alternatives: ghost polylines, no pins ─────────────────────────────
+      const lines = alternatives.map((alt, i) =>
+        L.polyline(alt.coordinates, {
+          color:   COLOURS[i],
+          weight:  i === 0 ? 5 : 4,
+          opacity: i === 0 ? 0.70 : 0.45,
+          lineJoin: 'round',
+          lineCap:  'round',
+          dashArray: i === 1 ? '10, 8' : undefined,
+        }).addTo(map)
+      )
+      linesRef.current = lines
 
-    // Fit map to show full route
-    map.fitBounds(lineRef.current.getBounds(), { padding: [60, 60], animate: true })
+      // Fit to combined bounds of all alternatives
+      const all: [number, number][] = ([] as [number, number][]).concat(...alternatives.map((a) => a.coordinates))
+      const bounds = L.latLngBounds(all)
+      map.fitBounds(bounds, { padding: [60, 80], animate: true })
+    }
 
     return () => {
-      lineRef.current?.remove()
+      linesRef.current.forEach((l) => l.remove())
       markersRef.current.forEach((m) => m.remove())
     }
-  }, [map, route])
+  }, [map, route, alternatives])
 
   return null
 }
