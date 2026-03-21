@@ -108,7 +108,7 @@ export function ReportButton({ map }: Props) {
       {open && (
         <div
           className="absolute bottom-full mb-3 glass-card overflow-hidden z-[1001]"
-          style={{ width: '224px' }}
+          style={{ width: '420px' }}
         >
           <div className="grid grid-cols-2">
             {EVENT_CONFIG.map(({ type, label, colour, icon }) => (
@@ -116,14 +116,14 @@ export function ReportButton({ map }: Props) {
                 key={type}
                 onClick={(e) => { e.stopPropagation(); report(type) }}
                 onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); report(type) }}
-                className="flex flex-col items-center justify-center gap-2
+                className="flex flex-col items-center justify-center gap-3
                            border-r border-b border-tesla-border last:border-r-0
                            [&:nth-child(2)]:border-r-0 [&:nth-child(3)]:border-b-0 [&:nth-child(4)]:border-b-0
                            active:bg-tesla-surface"
-                style={{ height: '96px', color: colour }}
+                style={{ height: '192px', color: colour }}
               >
-                {icon}
-                <span className="text-[12px] font-semibold" style={{ color: colour }}>{label}</span>
+                <span style={{ transform: 'scale(2)', display: 'block' }}>{icon}</span>
+                <span className="text-[16px] font-semibold" style={{ color: colour }}>{label}</span>
               </button>
             ))}
           </div>
