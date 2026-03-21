@@ -193,7 +193,7 @@ export function App() {
       <SearchBar map={map} onPlace={handlePlace} />
 
       {/* Floating UI */}
-      <FloatingTitleCard loading={loading} />
+      <FloatingTitleCard loading={loading && stations.length === 0} />
       <FloatingStatsCard stations={filteredStations} loading={loading} />
 
       {/* Controls */}
