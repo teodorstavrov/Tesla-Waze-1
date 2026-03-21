@@ -18,6 +18,7 @@ import { buildPopupHTML }             from '@/features/ev/popups'
 import { buildRouteMeta, isNearRouteMeta } from '@/features/route/utils/distanceToRoute'
 import type { RouteMeta }             from '@/features/route/utils/distanceToRoute'
 import type { Route }                 from '@/features/route/types'
+import { useEVStore }                 from '@/features/ev/store'
 
 interface Props {
   map:      LMap | null
@@ -44,6 +45,7 @@ const cancelRic: (id: number) => void =
   typeof cancelIdleCallback !== 'undefined' ? cancelIdleCallback : clearTimeout
 
 export function EVMarkers({ map, stations, route }: Props) {
+  const showOnMap     = useEVStore((s) => s.showStationsOnMap)
   const clusterRef    = useRef<L.MarkerClusterGroup | null>(null)
   const routeLayerRef = useRef<LayerGroup | null>(null)
   const markerMapRef  = useRef<Map<string, { marker: Marker; inRoute: boolean; fp: string }>>(new Map())
@@ -113,6 +115,15 @@ export function EVMarkers({ map, stations, route }: Props) {
     const routeLayer = routeLayerRef.current
     const markerMap  = markerMapRef.current
     if (!cluster || !routeLayer) return
+
+    // If hidden — clear all markers and stop
+    if (!showOnMap) {
+      cancelRic(ricIdRef.current)
+      cluster.clearLayers()
+      routeLayer.clearLayers()
+      markerMap.clear()
+      return
+    }
 
     // Cancel any previous pending diff pass
     cancelRic(ricIdRef.current)
@@ -199,7 +210,7 @@ export function EVMarkers({ map, stations, route }: Props) {
 
     ricIdRef.current = ric(processChunk, { timeout: 500 })
 
-  }, [stations, route])
+  }, [stations, route, showOnMap])
 
   return null
 }

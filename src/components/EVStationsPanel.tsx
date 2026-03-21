@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { haversine }        from '@/lib/haversine'
 import type { EVStation }   from '@/features/ev/types'
 import { loadFavorites, toggleFavorite } from '@/lib/favorites'
+import { useEVStore }       from '@/features/ev/store'
 
 interface Props {
   stations: EVStation[]
@@ -17,6 +18,8 @@ interface StationWithDist extends EVStation {
 }
 
 export function EVStationsPanel({ stations, onClose }: Props) {
+  const showOnMap        = useEVStore((s) => s.showStationsOnMap)
+  const setShowOnMap     = useEVStore((s) => s.setShowStationsOnMap)
   const [userPos,     setUserPos]     = useState<{ lat: number; lng: number } | null>(null)
   const [brandFilter, setBrandFilter] = useState<string>('all')
   const [powerFilter, setPowerFilter] = useState<'all' | 'fast' | 'ultrafast'>('all')
@@ -86,7 +89,30 @@ export function EVStationsPanel({ stations, onClose }: Props) {
       <div className="glass-card overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2.5 border-b border-tesla-border">
-          <span className="text-[13px] font-semibold text-tesla-text">Близки станции</span>
+          <div className="flex items-center gap-2.5">
+            <span className="text-[13px] font-semibold text-tesla-text">Близки станции</span>
+            {/* Map visibility toggle */}
+            <button
+              onClick={() => setShowOnMap(!showOnMap)}
+              onTouchEnd={(e) => { e.preventDefault(); setShowOnMap(!showOnMap) }}
+              className="relative flex-shrink-0"
+              style={{ width: 36, height: 20 }}
+              aria-label="Покажи/скрий на картата"
+            >
+              <span
+                className="absolute inset-0 rounded-full transition-colors duration-200"
+                style={{ background: showOnMap ? '#3d9df3' : '#3a3a3a' }}
+              />
+              <span
+                className="absolute top-0.5 rounded-full bg-white transition-all duration-200"
+                style={{
+                  width: 16, height: 16,
+                  left: showOnMap ? 18 : 2,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+                }}
+              />
+            </button>
+          </div>
           <button
             onClick={onClose}
             className="text-[12px] text-tesla-subtle hover:text-tesla-text px-2 py-1"
