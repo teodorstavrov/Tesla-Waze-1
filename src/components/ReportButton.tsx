@@ -1,8 +1,8 @@
 /**
- * ReportButton — opens a 2×2 grid of event types above the button.
- * Popup is absolutely positioned so it never shifts the dock layout.
+ * ReportButton — pill-shaped action button with signal submenu.
+ * Optimised for Tesla touchscreen (large touch targets, no hover, onTouchEnd).
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import type { Map as LMap }      from 'leaflet'
 import { useEventStore }         from '@/features/events/store'
 import type { EventType }        from '@/features/events/types'
@@ -11,88 +11,56 @@ interface Props { map: LMap | null }
 
 function playBeep() {
   try {
-    const ctx = new AudioContext()
+    const ctx  = new AudioContext()
     const osc  = ctx.createOscillator()
     const gain = ctx.createGain()
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.type = 'sine'
-    osc.frequency.value = 880
+    osc.connect(gain); gain.connect(ctx.destination)
+    osc.type = 'sine'; osc.frequency.value = 880
     gain.gain.setValueAtTime(0.25, ctx.currentTime)
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18)
-    osc.start()
-    osc.stop(ctx.currentTime + 0.18)
+    osc.start(); osc.stop(ctx.currentTime + 0.18)
   } catch { /* ignore */ }
 }
 
-const EVENT_CONFIG: Array<{ type: EventType; label: string; colour: string; icon: JSX.Element }> = [
-  {
-    type: 'police', label: 'Полиция', colour: '#3d9df3',
-    icon: (
-      <svg width="26" height="26" viewBox="0 0 20 20" fill="none">
-        {/* Head */}
-        <circle cx="10" cy="13.5" r="4.5" stroke="currentColor" strokeWidth="1.4"/>
-        {/* Hat brim */}
-        <line x1="4" y1="9.5" x2="16" y2="9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-        {/* Hat top */}
-        <rect x="6.5" y="5" width="7" height="5" rx="1.2" stroke="currentColor" strokeWidth="1.4"/>
-        {/* Badge */}
-        <circle cx="10" cy="7.2" r="1.1" fill="currentColor"/>
-      </svg>
-    ),
-  },
-  {
-    type: 'camera', label: 'Камера', colour: '#8e44ad',
-    icon: (
-      <svg width="26" height="26" viewBox="0 0 20 20" fill="none">
-        {/* Body */}
-        <rect x="1" y="6" width="13" height="9.5" rx="2" stroke="currentColor" strokeWidth="1.4"/>
-        {/* Lens */}
-        <circle cx="7.5" cy="10.7" r="2.8" stroke="currentColor" strokeWidth="1.3"/>
-        <circle cx="7.5" cy="10.7" r="1" fill="currentColor"/>
-        {/* Top bump */}
-        <rect x="4.5" y="3.5" width="5" height="2.7" rx="1" stroke="currentColor" strokeWidth="1.3"/>
-        {/* Video arm */}
-        <path d="M14 8.5l5-2.5v8l-5-2.5V8.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-      </svg>
-    ),
-  },
-  {
-    type: 'accident', label: 'Катастрофа', colour: '#e31937',
-    icon: (
-      <svg width="26" height="26" viewBox="0 0 20 20" fill="none">
-        {/* Shield */}
-        <path d="M10 1.5l7.5 3.5v6C17.5 15 14 18 10 19 6 18 2.5 15 2.5 11V5z"
-              stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-        {/* Exclamation */}
-        <path d="M10 7v5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-        <circle cx="10" cy="14" r="1.1" fill="currentColor"/>
-      </svg>
-    ),
-  },
-  {
-    type: 'danger', label: 'Опасност', colour: '#f5a623',
-    icon: (
-      <svg width="26" height="26" viewBox="0 0 20 20" fill="none">
-        {/* Bold triangle */}
-        <path d="M10 2L19 17.5H1L10 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-        {/* Exclamation */}
-        <path d="M10 7.5v5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-        <circle cx="10" cy="14.5" r="1.1" fill="currentColor"/>
-      </svg>
-    ),
-  },
+const MENU_ITEMS: Array<{ type: EventType; label: string; emoji: string }> = [
+  { type: 'police',   label: 'Полиция',    emoji: '🚔' },
+  { type: 'accident', label: 'Катастрофа', emoji: '💥' },
+  { type: 'danger',   label: 'Опасност',   emoji: '⚠️' },
+  { type: 'camera',   label: 'Камера',     emoji: '📷' },
 ]
 
 export function ReportButton({ map }: Props) {
-  const [open, setOpen] = useState(false)
-  const addEvent  = useEventStore((s) => s.addEvent)
-  const syncError = useEventStore((s) => s.syncError)
+  const [open,      setOpen]      = useState(false)
+  const [toast,     setToast]     = useState('')
+  const [toastVis,  setToastVis]  = useState(false)
+  const toastTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const menuTimer   = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const addEvent    = useEventStore((s) => s.addEvent)
+  const syncError   = useEventStore((s) => s.syncError)
 
-  const report = useCallback((type: EventType) => {
+  // Auto-close menu after 5s
+  useEffect(() => {
+    if (open) {
+      menuTimer.current = setTimeout(() => setOpen(false), 5_000)
+    }
+    return () => { if (menuTimer.current) clearTimeout(menuTimer.current) }
+  }, [open])
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg)
+    setToastVis(true)
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToastVis(false), 2_500)
+  }, [])
+
+  const report = useCallback((type: EventType, label: string) => {
     setOpen(false)
     if (!map) return
-    const place = (lat: number, lng: number) => { addEvent(type, lat, lng); playBeep() }
+    const place = (lat: number, lng: number) => {
+      addEvent(type, lat, lng)
+      playBeep()
+      showToast(`✅ Добавен сигнал: ${label}`)
+    }
     const fallback = () => { const c = map.getCenter(); place(c.lat, c.lng) }
     if (!navigator.geolocation) { fallback(); return }
     let settled = false
@@ -102,110 +70,163 @@ export function ReportButton({ map }: Props) {
       ()    => { if (!settled) { settled = true; clearTimeout(timer); fallback() } },
       { timeout: 3_000, maximumAge: 5_000 },
     )
-  }, [map, addEvent])
+  }, [map, addEvent, showToast])
+
+  const toggle = useCallback(() => setOpen((o) => !o), [])
 
   return (
-    <div className="relative flex flex-col items-center">
-      {/* Backdrop — closes menu when tapping outside */}
+    <>
+      <style>{`
+        @keyframes teslaPulse {
+          0%   { box-shadow: 0 4px 20px rgba(220,38,38,0.55), 0 0 0 0 rgba(220,38,38,0.6); }
+          70%  { box-shadow: 0 4px 20px rgba(220,38,38,0.55), 0 0 0 14px rgba(220,38,38,0); }
+          100% { box-shadow: 0 4px 20px rgba(220,38,38,0.55), 0 0 0 0 rgba(220,38,38,0); }
+        }
+      `}</style>
+
+      {/* Backdrop */}
       {open && (
         <div
-          className="fixed inset-0 z-[999]"
+          className="fixed inset-0 z-[1000]"
           style={{ touchAction: 'none' }}
           onTouchStart={(e) => { e.preventDefault(); setOpen(false) }}
           onClick={() => setOpen(false)}
         />
       )}
 
-      {/* 2×2 popup — absolutely positioned above, never shifts the dock */}
-      {open && (
-        <div
-          className="absolute bottom-full mb-3 glass-card overflow-hidden z-[1001]"
-          style={{ width: '224px' }}
-        >
-          <div className="grid grid-cols-2">
-            {EVENT_CONFIG.map(({ type, label, colour, icon }) => (
-              <button
-                key={type}
-                onClick={(e) => { e.stopPropagation(); report(type) }}
-                onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); report(type) }}
-                className="flex flex-col items-center justify-center gap-2
-                           border-r border-b border-tesla-border last:border-r-0
-                           [&:nth-child(2)]:border-r-0 [&:nth-child(3)]:border-b-0 [&:nth-child(4)]:border-b-0
-                           active:bg-tesla-surface"
-                style={{ height: '96px', color: colour }}
-              >
-                {icon}
-                <span className="text-[12px] font-semibold" style={{ color: colour }}>{label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Main button — above backdrop */}
-      <button
-        onClick={() => setOpen((o) => !o)}
-        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((o) => !o) }}
-        aria-label="Сигнал"
-        title={syncError ? 'Backend недостъпен' : 'Добави сигнал'}
+      {/* Signal submenu — appears above the button */}
+      <div
         style={{
-          position: 'relative',
-          zIndex: 1001,
-          width: 76, height: 76,
+          position: 'fixed',
+          bottom: 114,
+          right: 24,
+          background: 'rgba(10,10,10,0.96)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
           borderRadius: 20,
-          background: open
-            ? 'linear-gradient(145deg, #3a1a00, #5a2800)'
-            : 'linear-gradient(145deg, #b85000, #e07010)',
-          boxShadow: open
-            ? '0 2px 12px rgba(245,166,35,0.2)'
-            : '0 4px 20px rgba(245,166,35,0.5)',
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', gap: 5,
-          border: '1.5px solid rgba(245,166,35,0.5)',
-          transition: 'all 0.15s ease',
-          cursor: 'pointer', userSelect: 'none',
+          border: '1px solid rgba(255,255,255,0.15)',
+          minWidth: 210,
+          zIndex: 1002,
+          pointerEvents: open ? 'auto' : 'none',
+          opacity: open ? 1 : 0,
+          transform: open ? 'scale(1) translateY(0)' : 'scale(0.92) translateY(8px)',
+          transition: 'opacity 0.18s ease, transform 0.18s ease',
+          overflow: 'hidden',
+          transformOrigin: 'bottom right',
         }}
       >
-        {open ? <CloseIcon /> : <SignalIcon />}
-        <span style={{
-          fontSize: 10, fontWeight: 700, letterSpacing: '0.02em',
-          color: '#ffd080',
+        <div style={{
+          padding: '10px 18px',
+          color: 'rgba(255,255,255,0.55)',
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
         }}>
+          Изберете тип сигнал
+        </div>
+        {MENU_ITEMS.map(({ type, label, emoji }) => (
+          <button
+            key={type}
+            onClick={(e) => { e.stopPropagation(); report(type, label) }}
+            onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); report(type, label) }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              width: '100%',
+              padding: '13px 18px',
+              background: 'transparent',
+              border: 'none',
+              color: 'white',
+              fontSize: 15,
+              fontWeight: 500,
+              cursor: 'pointer',
+              minHeight: 52,
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <span style={{ fontSize: 20, width: 28, textAlign: 'center' }}>{emoji}</span>
+            <span>{label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Toast */}
+      <div
+        style={{
+          position: 'fixed',
+          bottom: toastVis ? 108 : 100,
+          right: 24,
+          background: 'rgba(10,10,10,0.92)',
+          backdropFilter: 'blur(12px)',
+          color: 'white',
+          padding: '10px 20px',
+          borderRadius: 100,
+          fontSize: 13,
+          fontWeight: 500,
+          zIndex: 1003,
+          opacity: toastVis ? 1 : 0,
+          transition: 'opacity 0.2s ease, bottom 0.2s ease',
+          pointerEvents: 'none',
+          border: '1px solid rgba(255,255,255,0.15)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {toast}
+      </div>
+
+      {/* Pill button */}
+      <button
+        onClick={toggle}
+        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); toggle() }}
+        aria-label="Сигнал"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          background: open ? 'rgba(180,20,20,0.95)' : 'rgba(220,38,38,0.88)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border: '1.5px solid rgba(255,100,100,0.55)',
+          borderRadius: 100,
+          padding: '0 26px 0 20px',
+          height: 60,
+          cursor: 'pointer',
+          animation: open ? 'none' : 'teslaPulse 2s infinite',
+          transition: 'background 0.15s ease',
+          zIndex: 1001,
+          position: 'relative',
+          userSelect: 'none',
+          WebkitTapHighlightColor: 'transparent',
+          willChange: 'transform',
+        }}
+      >
+        {/* Icon */}
+        <div style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+          {open ? (
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round">
+              <path d="M5 5l14 14M19 5L5 19"/>
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+              <circle cx="12" cy="12" r="4"/>
+            </svg>
+          )}
+        </div>
+        <span style={{ fontWeight: 600, fontSize: 16, color: 'white', letterSpacing: '0.3px', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
           Сигнал
         </span>
         {syncError && (
           <span style={{
-            position: 'absolute', top: 7, right: 7,
-            width: 9, height: 9, borderRadius: '50%',
-            background: '#e31937', border: '2px solid #0a0a0a',
+            position: 'absolute', top: 8, right: 8,
+            width: 8, height: 8, borderRadius: '50%',
+            background: '#ff6b6b', border: '2px solid rgba(220,38,38,0.9)',
           }} />
         )}
       </button>
-    </div>
-  )
-}
-
-function SignalIcon() {
-  return (
-    <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
-      <defs>
-        <linearGradient id="sig-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#ffe066"/>
-          <stop offset="100%" stopColor="#f5a623"/>
-        </linearGradient>
-      </defs>
-      <circle cx="15" cy="15" r="12" stroke="url(#sig-grad)" strokeWidth="2.2"
-              fill="rgba(245,166,35,0.12)"/>
-      <path d="M15 9v8" stroke="url(#sig-grad)" strokeWidth="2.6" strokeLinecap="round"/>
-      <circle cx="15" cy="20.5" r="1.4" fill="#f5a623"/>
-    </svg>
-  )
-}
-
-function CloseIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-      <path d="M5 5l14 14M19 5L5 19" stroke="#ffd080" strokeWidth="2.2" strokeLinecap="round"/>
-    </svg>
+    </>
   )
 }
