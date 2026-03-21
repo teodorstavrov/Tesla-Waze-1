@@ -113,11 +113,13 @@ export function App() {
   const toggleTheme  = useThemeStore((s) => s.toggle)
 
   // ── EV Store ───────────────────────────────────────────────────────────────
-  const stations      = useEVStore((s) => Object.values(s.entitiesById))
+  // Subscribe to entitiesById by reference — only changes when mergeStations() is called.
+  // Derive the array via useMemo so Object.values() is not called on every render.
+  const entitiesById   = useEVStore((s) => s.entitiesById)
   const loadingInitial = useEVStore((s) => s.loadingInitial)
-  const entitiesById  = useEVStore((s) => s.entitiesById)
-  const error         = useEVStore((s) => s.error)
-  const filterMode    = useEVStore((s) => s.filterMode)
+  const error          = useEVStore((s) => s.error)
+  const filterMode     = useEVStore((s) => s.filterMode)
+  const stations       = useMemo(() => Object.values(entitiesById), [entitiesById])
 
   // ── Route & Events ─────────────────────────────────────────────────────────
   const route        = useRouteStore((s) => s.route)
