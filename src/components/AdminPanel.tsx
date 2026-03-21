@@ -1,15 +1,13 @@
 /**
  * AdminPanel — visible only when URL contains ?admin
- * Flow: Google Sign-In → backend verify → admin map-click mode
+ * Flow: enter ADMIN_TOKEN password → backend verify → admin map-click mode
  * In admin mode: click anywhere on map → choose signal type → saved to DB
  */
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { Map as LMap, LeafletMouseEvent } from 'leaflet'
 import type { EventType } from '@/features/events/types'
 
 interface Props { map: LMap | null }
-
-type Step = 'login' | 'verifying' | 'ready'
 
 const SIGNAL_TYPES: Array<{ type: EventType; label: string; emoji: string; colour: string }> = [
   { type: 'police',   label: 'Полиция',    emoji: '🚔', colour: '#3d9df3' },
@@ -18,84 +16,49 @@ const SIGNAL_TYPES: Array<{ type: EventType; label: string; emoji: string; colou
   { type: 'danger',   label: 'Опасност',   emoji: '⚠️', colour: '#f5a623' },
 ]
 
-// Google credential callback type
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: {
-          initialize: (cfg: { client_id: string; callback: (r: { credential: string }) => void }) => void
-          renderButton: (el: HTMLElement, cfg: object) => void
-          prompt: () => void
-        }
-      }
-    }
-  }
-}
-
-// Only active when URL has ?admin
 const IS_ADMIN_URL = typeof window !== 'undefined' && window.location.search.includes('admin')
 
 export function AdminPanel({ map }: Props) {
-  const [step,    setStep]    = useState<Step>('login')
   const [token,   setToken]   = useState<string | null>(() => sessionStorage.getItem('admin_token'))
+  const [pass,    setPass]    = useState('')
   const [status,  setStatus]  = useState('')
+  const [loading, setLoading] = useState(false)
   const [picker,  setPicker]  = useState<{ lat: number; lng: number; x: number; y: number } | null>(null)
-  const btnRef = useRef<HTMLDivElement>(null)
 
-  // Not on admin URL — render nothing
   if (!IS_ADMIN_URL) return null
 
-  // Already have token → skip to ready
-  const currentStep: Step = token ? 'ready' : step
+  const isReady = !!token
 
-  // ── Google Sign-In init ────────────────────────────────────────────────────
-  useEffect(() => {
-    if (token) return
-    const clientId = import.meta.env['VITE_GOOGLE_CLIENT_ID'] as string | undefined
-    if (!clientId) { setStatus('VITE_GOOGLE_CLIENT_ID не е зададен'); return }
-
-    const tryInit = () => {
-      if (!window.google) { setTimeout(tryInit, 300); return }
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: async (res) => {
-          setStep('verifying')
-          setStatus('Проверяване…')
-          try {
-            const r = await fetch('/api/admin/verify', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ credential: res.credential }),
-            })
-            const data = await r.json()
-            if (data.ok && data.token) {
-              sessionStorage.setItem('admin_token', data.token)
-              setToken(data.token)
-              setStatus('Влязъл си успешно!')
-            } else {
-              setStep('login')
-              setStatus(data.error ?? 'Грешка при вход')
-            }
-          } catch {
-            setStep('login')
-            setStatus('Мрежова грешка')
-          }
-        },
+  const login = useCallback(async () => {
+    if (!pass.trim()) return
+    setLoading(true)
+    setStatus('')
+    try {
+      // Verify the password by attempting a dummy admin event with it
+      // We use the /api/admin/verify endpoint with the raw token as "credential"
+      const r = await fetch('/api/admin/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pass.trim() }),
       })
-      if (btnRef.current) {
-        window.google.accounts.id.renderButton(btnRef.current, {
-          theme: 'filled_black', size: 'large', text: 'signin_with',
-          shape: 'pill', locale: 'bg',
-        })
+      const data = await r.json()
+      if (data.ok && data.token) {
+        sessionStorage.setItem('admin_token', data.token)
+        setToken(data.token)
+        setStatus('')
+      } else {
+        setStatus(data.error ?? 'Грешна парола')
       }
+    } catch {
+      setStatus('Мрежова грешка')
+    } finally {
+      setLoading(false)
     }
-    tryInit()
-  }, [token])
+  }, [pass])
 
   // ── Map click handler ──────────────────────────────────────────────────────
   useEffect(() => {
-    if (!map || currentStep !== 'ready') return
+    if (!map || !isReady) return
 
     // Change cursor to crosshair in admin mode
     const container = map.getContainer()
@@ -112,7 +75,7 @@ export function AdminPanel({ map }: Props) {
       container.style.cursor = ''
       map.off('click', onClick)
     }
-  }, [map, currentStep])
+  }, [map, isReady])
 
   // ── Place event ────────────────────────────────────────────────────────────
   const placeEvent = useCallback(async (type: EventType, lat: number, lng: number) => {
@@ -140,7 +103,7 @@ export function AdminPanel({ map }: Props) {
   const logout = useCallback(() => {
     sessionStorage.removeItem('admin_token')
     setToken(null)
-    setStep('login')
+    setPass('')
     setPicker(null)
   }, [])
 
@@ -148,7 +111,7 @@ export function AdminPanel({ map }: Props) {
   return (
     <>
       {/* Admin mode banner */}
-      {currentStep === 'ready' && (
+      {isReady && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9000,
           background: 'rgba(220,38,38,0.92)', backdropFilter: 'blur(8px)',
@@ -175,26 +138,48 @@ export function AdminPanel({ map }: Props) {
       )}
 
       {/* Login overlay */}
-      {currentStep !== 'ready' && (
+      {!isReady && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 9000,
-          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(16px)',
+          background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(16px)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          gap: 24,
+          gap: 20,
         }}>
           <div style={{ color: 'white', fontSize: 22, fontWeight: 700 }}>🔐 Admin вход</div>
-          <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14 }}>
-            Влез с teodorstavrov@gmail.com
-          </div>
-          {status && (
-            <div style={{ color: '#f5a623', fontSize: 14, fontWeight: 500 }}>{status}</div>
-          )}
-          <div ref={btnRef} />
+          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Въведи admin паролата</div>
+          <input
+            type="password"
+            value={pass}
+            onChange={(e) => setPass(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && login()}
+            placeholder="Парола…"
+            autoFocus
+            style={{
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              borderRadius: 12, padding: '12px 20px',
+              color: 'white', fontSize: 16, outline: 'none',
+              width: 260, textAlign: 'center',
+            }}
+          />
+          {status && <div style={{ color: '#f5a623', fontSize: 14 }}>{status}</div>}
+          <button
+            onClick={login}
+            disabled={loading}
+            style={{
+              background: loading ? 'rgba(61,157,243,0.4)' : '#3d9df3',
+              border: 'none', borderRadius: 12,
+              padding: '12px 40px', color: 'white',
+              fontSize: 15, fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            {loading ? 'Проверяване…' : 'Влез'}
+          </button>
         </div>
       )}
 
       {/* Signal type picker — appears at map click location */}
-      {picker && currentStep === 'ready' && (
+      {picker && isReady && (
         <>
           {/* Dismiss backdrop */}
           <div
