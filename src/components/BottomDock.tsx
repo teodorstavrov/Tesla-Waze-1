@@ -80,30 +80,30 @@ export function BottomDock({ map, stations }: Props) {
 
           {/* EV stations button */}
           <button
-            onClick={() => setEvOpen((o) => !o)}
+            onClick={(e) => { e.stopPropagation(); setEvOpen((o) => !o) }}
             onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); setEvOpen((o) => !o) }}
             aria-label="Зарядни станции"
             style={{
-              width: 86, height: 86,
-              borderRadius: 22,
+              width: 96, height: 96,
+              borderRadius: 24,
               background: evOpen
-                ? 'linear-gradient(145deg, rgba(26,58,92,0.82), rgba(15,42,69,0.82))'
-                : 'linear-gradient(145deg, rgba(15,52,96,0.78), rgba(26,107,181,0.78))',
+                ? 'rgba(200,200,210,0.18)'
+                : 'rgba(230,230,240,0.13)',
               boxShadow: evOpen
-                ? '0 2px 12px rgba(61,157,243,0.25)'
-                : '0 4px 20px rgba(61,157,243,0.4)',
+                ? 'inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 16px rgba(0,0,0,0.35)'
+                : 'inset 0 1px 0 rgba(255,255,255,0.3), 0 4px 24px rgba(0,0,0,0.4)',
               display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', gap: 5,
-              border: '1.5px solid rgba(61,157,243,0.38)',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
+              alignItems: 'center', justifyContent: 'center', gap: 6,
+              border: '1px solid rgba(255,255,255,0.22)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
               transition: 'all 0.15s ease',
               cursor: 'pointer', userSelect: 'none',
             }}
           >
-            <EVIcon />
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.02em', color: '#7ec8f7' }}>
-              Зарядни
+            <BatteryIcon />
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', color: 'rgba(255,255,255,0.9)', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
+              ЗАРЯДНИ
             </span>
           </button>
         </div>
@@ -112,22 +112,19 @@ export function BottomDock({ map, stations }: Props) {
   )
 }
 
-function EVIcon() {
+function BatteryIcon() {
   return (
-    <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
-      <defs>
-        <linearGradient id="ev-bolt" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#7ec8f7"/>
-          <stop offset="100%" stopColor="#3d9df3"/>
-        </linearGradient>
-        <linearGradient id="ev-body" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#5bb8f5"/>
-          <stop offset="100%" stopColor="#2980d4"/>
-        </linearGradient>
-      </defs>
-      <rect x="2" y="9" width="21" height="13" rx="3.5" stroke="url(#ev-body)" strokeWidth="2" fill="rgba(61,157,243,0.12)"/>
-      <path d="M23 13v5" stroke="#5bb8f5" strokeWidth="3" strokeLinecap="round"/>
-      <path d="M14 13.5l-2 4h3.5l-1.5 4.5 5.5-6.5H16l1.5-2z" fill="url(#ev-bolt)"/>
+    <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+      {/* Battery body */}
+      <rect x="2" y="10" width="26" height="16" rx="4"
+            fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.85)" strokeWidth="2"/>
+      {/* Battery tip */}
+      <path d="M28 15v6" stroke="rgba(255,255,255,0.85)" strokeWidth="3" strokeLinecap="round"/>
+      {/* Green fill */}
+      <rect x="4" y="12" width="20" height="12" rx="2.5" fill="#22c55e" opacity="0.85"/>
+      {/* Lightning bolt — white */}
+      <path d="M17 14l-3 5h3.5l-2 6 6.5-8H18l2-3z"
+            fill="white" opacity="0.95"/>
     </svg>
   )
 }

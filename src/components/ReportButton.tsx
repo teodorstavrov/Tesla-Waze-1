@@ -139,32 +139,32 @@ export function ReportButton({ map }: Props) {
         style={{
           position: 'relative',
           zIndex: 1001,
-          width: 86, height: 86,
-          borderRadius: 22,
+          width: 96, height: 96,
+          borderRadius: 24,
           background: open
-            ? 'linear-gradient(145deg, rgba(58,26,0,0.82), rgba(90,40,0,0.82))'
-            : 'linear-gradient(145deg, rgba(184,80,0,0.78), rgba(224,112,16,0.78))',
+            ? 'rgba(200,200,210,0.18)'
+            : 'rgba(230,230,240,0.13)',
           boxShadow: open
-            ? '0 2px 12px rgba(245,166,35,0.2)'
-            : '0 4px 20px rgba(245,166,35,0.45)',
+            ? 'inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 16px rgba(0,0,0,0.35)'
+            : 'inset 0 1px 0 rgba(255,255,255,0.3), 0 4px 24px rgba(0,0,0,0.4)',
           display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', gap: 5,
-          border: '1.5px solid rgba(245,166,35,0.45)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
+          alignItems: 'center', justifyContent: 'center', gap: 6,
+          border: '1px solid rgba(255,255,255,0.22)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
           transition: 'all 0.15s ease',
           cursor: 'pointer', userSelect: 'none',
         }}
       >
-        {open ? <CloseIcon /> : <SignalIcon />}
-        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.02em', color: '#ffd080' }}>
-          Сигнал
+        {open ? <CloseIcon /> : <FlagIcon />}
+        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', color: 'rgba(255,255,255,0.9)', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
+          СИГНАЛ
         </span>
         {syncError && (
           <span style={{
-            position: 'absolute', top: 7, right: 7,
-            width: 9, height: 9, borderRadius: '50%',
-            background: '#e31937', border: '2px solid #0a0a0a',
+            position: 'absolute', top: 8, right: 8,
+            width: 8, height: 8, borderRadius: '50%',
+            background: '#e31937', border: '1.5px solid rgba(255,255,255,0.5)',
           }} />
         )}
       </button>
@@ -172,27 +172,23 @@ export function ReportButton({ map }: Props) {
   )
 }
 
-function SignalIcon() {
+function FlagIcon() {
   return (
-    <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
-      <defs>
-        <linearGradient id="sig-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#ffe066"/>
-          <stop offset="100%" stopColor="#f5a623"/>
-        </linearGradient>
-      </defs>
-      <circle cx="15" cy="15" r="12" stroke="url(#sig-grad)" strokeWidth="2.2"
-              fill="rgba(245,166,35,0.12)"/>
-      <path d="M15 9v8" stroke="url(#sig-grad)" strokeWidth="2.6" strokeLinecap="round"/>
-      <circle cx="15" cy="20.5" r="1.4" fill="#f5a623"/>
+    <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
+      {/* Pole */}
+      <line x1="8" y1="5" x2="8" y2="30" stroke="rgba(255,255,255,0.9)" strokeWidth="2.2" strokeLinecap="round"/>
+      {/* Flag body */}
+      <path d="M8 6 L26 10 L8 18 Z" fill="rgba(255,255,255,0.92)" />
+      {/* Flag shine */}
+      <path d="M8 6 L26 10 L17 14 Z" fill="rgba(255,255,255,0.35)" />
     </svg>
   )
 }
 
 function CloseIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-      <path d="M5 5l14 14M19 5L5 19" stroke="#ffd080" strokeWidth="2.2" strokeLinecap="round"/>
+    <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+      <path d="M5 5l16 16M21 5L5 21" stroke="rgba(255,255,255,0.9)" strokeWidth="2.2" strokeLinecap="round"/>
     </svg>
   )
 }
