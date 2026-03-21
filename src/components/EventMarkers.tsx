@@ -2,15 +2,18 @@
  * Renders user-reported events (police, danger, accident, camera) on the map.
  * Tap a marker → popup with event type + time + remove button.
  */
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useMemo } from 'react'
 import type { Map as LMap, LayerGroup } from 'leaflet'
 import { L }                from '@/lib/leaflet'
 import type { ReportedEvent, EventType } from '@/features/events/types'
 import { useEventStore }    from '@/features/events/store'
+import type { Route }       from '@/features/route/types'
+import { buildRouteMeta, isNearRouteMeta } from '@/features/route/utils/distanceToRoute'
 
 interface Props {
   map:    LMap | null
   events: ReportedEvent[]
+  route:  Route | null
 }
 
 const COLOURS: Record<EventType, string> = {
@@ -115,9 +118,16 @@ function eventIcon(type: EventType) {
   })
 }
 
-export function EventMarkers({ map, events }: Props) {
+export function EventMarkers({ map, events, route }: Props) {
   const layerRef   = useRef<LayerGroup | null>(null)
   const removeEvent = useEventStore((s) => s.removeEvent)
+
+  // When a route is active: show only events within 500 m of the route
+  const visibleEvents = useMemo(() => {
+    if (!route || route.coordinates.length < 2) return events
+    const meta = buildRouteMeta(route.coordinates)
+    return events.filter((e) => isNearRouteMeta(e.lat, e.lng, meta))
+  }, [events, route])
 
   useEffect(() => {
     if (!map) return
@@ -131,7 +141,7 @@ export function EventMarkers({ map, events }: Props) {
     if (!layer) return
     layer.clearLayers()
 
-    for (const ev of events) {
+    for (const ev of visibleEvents) {
       const marker = L.marker([ev.lat, ev.lng], {
         icon:         eventIcon(ev.type),
         interactive:  true,
@@ -157,7 +167,7 @@ export function EventMarkers({ map, events }: Props) {
 
       layer.addLayer(marker)
     }
-  }, [events])
+  }, [visibleEvents])
 
   // Listen for remove button clicks from popup
   useEffect(() => {

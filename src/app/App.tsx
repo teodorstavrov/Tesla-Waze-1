@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import type { Map as LMap } from 'leaflet'
 
 import { MapShell }            from '@/components/MapShell'
@@ -122,16 +122,11 @@ export function App() {
   const route  = useRouteStore((s) => s.route)
   const events = useEventStore((s) => s.events)
 
-  // ── Derived — async so heavy route filtering never blocks the main thread ──
-  const [filteredStations, setFilteredStations] = useState(stations)
-  useEffect(() => {
-    let cancelled = false
-    // Yield to the browser first, then compute (prevents Page Unresponsive)
-    const id = setTimeout(() => {
-      if (!cancelled) setFilteredStations(applyFilter(stations, filterMode, route))
-    }, 0)
-    return () => { cancelled = true; clearTimeout(id) }
-  }, [stations, filterMode, route])
+  // ── Derived — memoised so EVMarkers only rerenders when the filtered set changes ──
+  const filteredStations = useMemo(
+    () => applyFilter(stations, filterMode, route),
+    [stations, filterMode, route],
+  )
 
   useAutoRefresh(map, trigger)
 
@@ -144,7 +139,9 @@ export function App() {
 
   const handleBoundsChange = useCallback((m: LMap) => {
     trigger(m)
-    triggerEv(m)
+    // When a route is active, events are filtered client-side along the route —
+    // no need to re-query the entire viewport on every pan/zoom
+    if (!useRouteStore.getState().route) triggerEv(m)
   }, [trigger, triggerEv])
   const handleRetry        = useCallback(() => {
     setError(null)
@@ -162,7 +159,7 @@ export function App() {
 
       {/* Markers */}
       <EVMarkers   map={map} stations={filteredStations} route={route} />
-      <EventMarkers map={map} events={events} />
+      <EventMarkers map={map} events={events} route={route} />
 
       {/* Route */}
       <RouteLayer map={map} route={route} />
