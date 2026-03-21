@@ -1,11 +1,9 @@
 /**
- * Debounced EV station fetching triggered by map movement.
+ * EV station fetching triggered by map movement.
  *
- * Design:
- * - Accepts the Leaflet map instance directly (avoids stale closures)
- * - Debounces rapid map moves so we don't flood the API
- * - Writes results directly to the Zustand store (no prop drilling)
- * - Cleans up pending timer on unmount
+ * First call: fires IMMEDIATELY (no debounce) — ensures stations load
+ * even while driving when the map is still moving.
+ * Subsequent calls: debounced 600 ms to avoid flooding the API on rapid pans.
  */
 import { useCallback, useEffect, useRef } from 'react'
 import type { Map as LMap } from 'leaflet'
@@ -16,42 +14,51 @@ import type { BoundingBox } from '../types'
 const DEBOUNCE_MS = 600
 
 export function useEVPolling() {
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const timerRef     = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const loadedOnce   = useRef(false)
 
-  // Clear pending timer on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
     }
   }, [])
 
-  const trigger = useCallback((map: LMap) => {
-    if (timerRef.current) clearTimeout(timerRef.current)
+  const doFetch = useCallback(async (map: LMap) => {
+    const b = map.getBounds()
+    const bbox: BoundingBox = {
+      north: b.getNorth(),
+      south: b.getSouth(),
+      east:  b.getEast(),
+      west:  b.getWest(),
+    }
 
-    timerRef.current = setTimeout(async () => {
-      const b = map.getBounds()
-      const bbox: BoundingBox = {
-        north: b.getNorth(),
-        south: b.getSouth(),
-        east:  b.getEast(),
-        west:  b.getWest(),
-      }
+    const { setLoading, setError, setStations, setLastResponse } = useEVStore.getState()
+    setLoading(true)
+    setError(null)
 
-      const { setLoading, setError, setStations, setLastResponse } = useEVStore.getState()
-      setLoading(true)
-      setError(null)
-
-      try {
-        const response = await fetchStations(bbox)
-        setStations(response.stations)
-        setLastResponse(response)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load stations')
-      } finally {
-        setLoading(false)
-      }
-    }, DEBOUNCE_MS)
+    try {
+      const response = await fetchStations(bbox)
+      setStations(response.stations)
+      setLastResponse(response)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load stations')
+    } finally {
+      setLoading(false)
+    }
   }, [])
+
+  const trigger = useCallback((map: LMap) => {
+    if (!loadedOnce.current) {
+      // First call: load immediately so stations appear even while driving
+      loadedOnce.current = true
+      void doFetch(map)
+      return
+    }
+
+    // Subsequent calls: debounce to avoid flooding on rapid pan/zoom
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => void doFetch(map), DEBOUNCE_MS)
+  }, [doFetch])
 
   return { trigger }
 }

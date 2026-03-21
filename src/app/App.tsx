@@ -21,7 +21,8 @@ import { ConfirmEventPrompt }  from '@/components/ConfirmEventPrompt'
 import { AdminPanel }          from '@/components/AdminPanel'
 
 import { useEVStore }                              from '@/features/ev/store'
-import { useEVSession }                            from '@/features/ev/hooks/useEVSession'
+import { useEVPolling }                            from '@/features/ev/hooks/useEVPolling'
+import { useAutoRefresh }                          from '@/features/ev/hooks/useAutoRefresh'
 import { useEventPolling }                         from '@/features/events/hooks/useEventPolling'
 import { applyFilter } from '@/features/ev/selectors'
 import { useRouteStore }                           from '@/features/route/store'
@@ -35,8 +36,8 @@ import { useProximityAlerts, unlockAudio } from '@/features/alerts/useProximityA
 export function App() {
   const [map, setMap]    = useState<LMap | null>(null)
   const mapRef           = useRef<LMap | null>(null)
-  useEVSession()
-  const { trigger: triggerEv }   = useEventPolling()
+  const { trigger }            = useEVPolling()
+  const { trigger: triggerEv } = useEventPolling()
   const [siren,        setSiren]        = useState(false)
   const [confirmEvent, setConfirmEvent] = useState<ReportedEvent | null>(null)
 
@@ -146,32 +147,31 @@ export function App() {
     [stations, filterMode, filterRoute],
   )
 
+  useAutoRefresh(map, trigger)
+
   const handleMapReady = useCallback((m: LMap) => {
     setMap(m)
     mapRef.current = m
+    trigger(m)    // immediate — no debounce on first load
     triggerEv(m)
-  }, [triggerEv])
+  }, [trigger, triggerEv])
 
   const handleBoundsChange = useCallback((m: LMap) => {
+    trigger(m)
     // When navigating (route active or picking between alternatives),
     // events are filtered client-side — skip bbox polling on pan/zoom
     const s = useRouteStore.getState()
     if (!s.route && !s.alternatives) triggerEv(m)
-  }, [triggerEv])
+  }, [trigger, triggerEv])
 
   const handleRetry = useCallback(() => {
     setError(null)
-    // Re-trigger a fresh session load on error
-    useEVStore.getState().setLoading(true)
-    fetch('/api/ev/stations')
-      .then((r) => r.json())
-      .then((data) => { useEVStore.getState().setStations(data.stations ?? []); useEVStore.getState().setLoading(false) })
-      .catch(() => { useEVStore.getState().setError('Failed to reload'); useEVStore.getState().setLoading(false) })
-  }, [setError])
+    if (mapRef.current) trigger(mapRef.current)
+  }, [trigger, setError])
 
   const handlePlace = useCallback((_lat: number, _lng: number) => {
-    // EV stations already loaded — nothing to refetch
-  }, [])
+    if (mapRef.current) trigger(mapRef.current)
+  }, [trigger])
 
   return (
     // Apply theme class so CSS tile filter can target it
