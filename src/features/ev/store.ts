@@ -1,55 +1,102 @@
 /**
  * Zustand store for EV charging state.
- * Phase 1: structure only — data fetching added in Phase 4.
+ *
+ * Key design: entitiesById is an accumulative dictionary — stations are NEVER
+ * wiped, only merged. New fetches add/update entries. This prevents flicker
+ * when panning, slow responses, or empty API returns.
  */
 import { create } from 'zustand'
-import type { EVStation, FilterMode, StationsResponse } from './types'
+import type { EVStation, FilterMode } from './types'
+
+type CoverageBbox = { north: number; south: number; east: number; west: number }
 
 interface EVState {
-  // ── Data ──────────────────────────────────────────────────────
-  stations: EVStation[]
-  lastResponse: StationsResponse | null
+  // ── Normalized entity store — NEVER wiped, only merged ────────────────────
+  entitiesById: Record<string, EVStation>
 
-  // ── Loading / error ───────────────────────────────────────────
-  loading: boolean
-  error: string | null
+  // ── Loading states — separate initial vs background ────────────────────────
+  loadingInitial:    boolean   // true only on very first fetch (no data yet)
+  loadingBackground: boolean   // true on background refreshes (data already shown)
+  error:             string | null
 
-  // ── Filters ───────────────────────────────────────────────────
+  // ── Filters ───────────────────────────────────────────────────────────────
   filterMode: FilterMode
 
-  // ── Visibility ────────────────────────────────────────────────
+  // ── Visibility ────────────────────────────────────────────────────────────
   showStationsOnMap: boolean
 
-  // ── Actions ───────────────────────────────────────────────────
-  setStations: (stations: EVStation[]) => void
-  setLastResponse: (r: StationsResponse) => void
-  setLoading: (v: boolean) => void
-  setError: (msg: string | null) => void
-  setFilterMode: (mode: FilterMode) => void
+  // ── Coverage tracking ─────────────────────────────────────────────────────
+  coverageBbox: CoverageBbox | null
+
+  // ── Actions ───────────────────────────────────────────────────────────────
+  mergeStations:        (stations: EVStation[]) => void
+  setLoadingInitial:    (v: boolean) => void
+  setLoadingBackground: (v: boolean) => void
+  setError:             (msg: string | null) => void
+  setFilterMode:        (mode: FilterMode) => void
   setShowStationsOnMap: (v: boolean) => void
+  setCoverageBbox:      (bbox: CoverageBbox | null) => void
+
+  // ── Backward-compat shims (used by legacy callers) ─────────────────────────
+  /** @deprecated Use mergeStations instead */
+  setStations:     (stations: EVStation[]) => void
+  /** @deprecated No-op — response metadata no longer stored */
+  setLastResponse: (r: unknown) => void
+  /** @deprecated Use setLoadingInitial or setLoadingBackground */
+  setLoading:      (v: boolean) => void
+
   reset: () => void
 }
 
 const initialState = {
-  stations: [],
-  lastResponse: null,
-  loading: false,
-  error: null,
-  filterMode: 'all' as FilterMode,
+  entitiesById:      {} as Record<string, EVStation>,
+  loadingInitial:    false,
+  loadingBackground: false,
+  error:             null,
+  filterMode:        'all' as FilterMode,
   showStationsOnMap: localStorage.getItem('ev_show_on_map') !== 'false',
+  coverageBbox:      null as CoverageBbox | null,
 }
 
 export const useEVStore = create<EVState>((set) => ({
   ...initialState,
 
-  setStations: (stations) => set({ stations }),
-  setLastResponse: (lastResponse) => set({ lastResponse }),
-  setLoading: (loading) => set({ loading }),
-  setError: (error) => set({ error }),
-  setFilterMode: (filterMode) => set({ filterMode }),
+  mergeStations: (stations) =>
+    set((state) => {
+      const next = { ...state.entitiesById }
+      for (const s of stations) {
+        next[s.id] = s
+      }
+      return { entitiesById: next }
+    }),
+
+  setLoadingInitial:    (loadingInitial)    => set({ loadingInitial }),
+  setLoadingBackground: (loadingBackground) => set({ loadingBackground }),
+  setError:             (error)             => set({ error }),
+  setFilterMode:        (filterMode)        => set({ filterMode }),
+  setCoverageBbox:      (coverageBbox)      => set({ coverageBbox }),
+
   setShowStationsOnMap: (v) => {
     localStorage.setItem('ev_show_on_map', String(v))
     set({ showStationsOnMap: v })
   },
-  reset: () => set(initialState),
+
+  // Backward-compat shims
+  setStations: (stations) =>
+    set((state) => {
+      const next = { ...state.entitiesById }
+      for (const s of stations) {
+        next[s.id] = s
+      }
+      return { entitiesById: next }
+    }),
+  setLastResponse: () => { /* no-op */ },
+  setLoading:      (v) => set({ loadingInitial: v }),
+
+  reset: () => set({ ...initialState, entitiesById: {} }),
 }))
+
+/** Selector: returns all stations as an array (derived from entitiesById). */
+export function selectStations(state: EVState): EVStation[] {
+  return Object.values(state.entitiesById)
+}

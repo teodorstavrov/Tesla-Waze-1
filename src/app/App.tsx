@@ -113,11 +113,11 @@ export function App() {
   const toggleTheme  = useThemeStore((s) => s.toggle)
 
   // ── EV Store ───────────────────────────────────────────────────────────────
-  const stations      = useEVStore((s) => s.stations)
-  const loading       = useEVStore((s) => s.loading)
+  const stations      = useEVStore((s) => Object.values(s.entitiesById))
+  const loadingInitial = useEVStore((s) => s.loadingInitial)
+  const entitiesById  = useEVStore((s) => s.entitiesById)
   const error         = useEVStore((s) => s.error)
   const filterMode    = useEVStore((s) => s.filterMode)
-  const setError      = useEVStore((s) => s.setError)
 
   // ── Route & Events ─────────────────────────────────────────────────────────
   const route        = useRouteStore((s) => s.route)
@@ -165,9 +165,9 @@ export function App() {
   }, [trigger, triggerEv])
 
   const handleRetry = useCallback(() => {
-    setError(null)
+    useEVStore.getState().setError(null)
     if (mapRef.current) trigger(mapRef.current)
-  }, [trigger, setError])
+  }, [trigger])
 
   const handlePlace = useCallback((_lat: number, _lng: number) => {
     if (mapRef.current) trigger(mapRef.current)
@@ -193,8 +193,8 @@ export function App() {
       <SearchBar map={map} onPlace={handlePlace} />
 
       {/* Floating UI */}
-      <FloatingTitleCard loading={loading && stations.length === 0} />
-      <FloatingStatsCard stations={filteredStations} loading={loading} />
+      <FloatingTitleCard loading={loadingInitial && Object.keys(entitiesById).length === 0} />
+      <FloatingStatsCard stations={filteredStations} loading={loadingInitial} />
 
       {/* Controls */}
       <ThemeToggle  isDark={isDark} onToggle={toggleTheme} />
@@ -205,8 +205,8 @@ export function App() {
       <BottomDock map={map} stations={filteredStations} />
 
       {/* Status */}
-      <LoadingOverlay visible={loading && stations.length === 0} />
-      <ErrorBanner message={error} onDismiss={() => setError(null)} onRetry={handleRetry} />
+      <LoadingOverlay visible={loadingInitial && Object.keys(entitiesById).length === 0} />
+      <ErrorBanner message={error} onDismiss={() => useEVStore.getState().setError(null)} onRetry={handleRetry} />
 
       {/* Route alternative picker — shown before user picks a route */}
       {alternatives && !route && (

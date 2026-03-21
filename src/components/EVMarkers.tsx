@@ -1,12 +1,15 @@
 /**
  * EVMarkers — renders EV station markers onto the Leaflet map via MarkerClusterGroup.
  *
- * Performance:
- * - buildRouteMeta() called once per route change (bbox + decimated coords)
- * - isNearRouteMeta() uses bbox rejection first, then reduced segment count
- * - Incremental diff — add/remove only changed markers
- * - Fingerprint skips markers when nothing relevant changed
- * - Chunked async processing via requestIdleCallback prevents UI freeze
+ * Performance architecture:
+ * - PERSISTENT MARKER REGISTRY: markers are created once and reused — never wiped.
+ * - Diff by stationId: add new, remove truly gone, update changed fingerprint.
+ * - Fingerprint = `${isTesla}|${availablePorts}|${totalPorts}|${inRoute}` — popup
+ *   and icon are only rebuilt when something actually changed.
+ * - cluster.clearLayers() is ONLY called when showOnMap is toggled off, never on
+ *   normal data updates — prevents blank intermediate states.
+ * - New markers are added via requestIdleCallback in 60-per-chunk passes.
+ * - Stale marker removal is synchronous (fast, typically a small set).
  */
 import { useEffect, useRef }          from 'react'
 import type { Map as LMap, LayerGroup, Marker } from 'leaflet'
@@ -24,6 +27,12 @@ interface Props {
   map:      LMap | null
   stations: EVStation[]
   route:    Route | null
+}
+
+interface MarkerEntry {
+  marker:  Marker
+  fp:      string
+  inRoute: boolean
 }
 
 function highlightIcon(isTesla: boolean) {
@@ -48,19 +57,21 @@ export function EVMarkers({ map, stations, route }: Props) {
   const showOnMap     = useEVStore((s) => s.showStationsOnMap)
   const clusterRef    = useRef<L.MarkerClusterGroup | null>(null)
   const routeLayerRef = useRef<LayerGroup | null>(null)
-  const markerMapRef  = useRef<Map<string, { marker: Marker; inRoute: boolean; fp: string }>>(new Map())
+
+  // Persistent marker registry — keyed by station id, never recreated wholesale
+  const markerMapRef  = useRef<Map<string, MarkerEntry>>(new Map())
 
   // Pre-computed route metadata — rebuilt once per route change
   const routeMetaRef  = useRef<RouteMeta | null>(null)
   // Cancel any in-progress async diff pass
   const ricIdRef      = useRef<number>(0)
 
-  // ── Route meta: rebuild only when route changes ────────────────────────────
+  // ── Route meta: rebuild only when route identity changes ──────────────────
   useEffect(() => {
     routeMetaRef.current = route ? buildRouteMeta(route.coordinates) : null
   }, [route])
 
-  // ── Effect 1: cluster group lifecycle ─────────────────────────────────────
+  // ── Effect 1: cluster group lifecycle (created once per map mount) ─────────
   useEffect(() => {
     if (!map) return
 
@@ -96,7 +107,7 @@ export function EVMarkers({ map, stations, route }: Props) {
     const routeLayer = L.layerGroup().addTo(map)
     clusterRef.current    = cluster
     routeLayerRef.current = routeLayer
-    markerMapRef.current  = new Map()
+    // DO NOT reset markerMapRef here — we might be remounting on the same data
     map.addLayer(cluster)
 
     return () => {
@@ -105,6 +116,7 @@ export function EVMarkers({ map, stations, route }: Props) {
       routeLayer.remove()
       clusterRef.current    = null
       routeLayerRef.current = null
+      // Clear marker registry on unmount only
       markerMapRef.current  = new Map()
     }
   }, [map])
@@ -116,7 +128,7 @@ export function EVMarkers({ map, stations, route }: Props) {
     const markerMap  = markerMapRef.current
     if (!cluster || !routeLayer) return
 
-    // If hidden — clear all markers and stop
+    // If visibility is toggled OFF — clear everything (intentional blank state)
     if (!showOnMap) {
       cancelRic(ricIdRef.current)
       cluster.clearLayers()
@@ -129,10 +141,10 @@ export function EVMarkers({ map, stations, route }: Props) {
     cancelRic(ricIdRef.current)
 
     const meta = routeMetaRef.current
-    const fingerprint = (s: EVStation, inRoute: boolean) =>
+    const fingerprint = (s: EVStation, inRoute: boolean): string =>
       `${s.isTesla}|${s.availablePorts}|${s.totalPorts}|${inRoute}`
 
-    // Step 1: remove stale markers (fast, synchronous)
+    // Step 1: remove stale markers — synchronous (fast, small set)
     let removed = 0
     const stationIds = new Set(stations.map((s) => s.id))
     for (const [id, { marker, inRoute }] of markerMap) {
@@ -148,7 +160,7 @@ export function EVMarkers({ map, stations, route }: Props) {
     let idx    = 0
     let added  = 0, moved = 0, skipped = 0
 
-    const CHUNK = 60   // stations per idle chunk
+    const CHUNK = 60   // stations per idle-time chunk
 
     function processChunk(deadline: IdleDeadline) {
       // Guard: layers may have been torn down between idle chunks (unmount)
@@ -169,9 +181,11 @@ export function EVMarkers({ map, stations, route }: Props) {
           const existing = markerMap.get(s.id)
 
           if (existing) {
+            // Marker already exists — only update what changed
             if (existing.fp === newFp) { skipped++; continue }
 
             if (existing.inRoute !== inRoute) {
+              // Station moved between route-highlight layer and cluster layer
               if (existing.inRoute) {
                 rl.removeLayer(existing.marker)
                 existing.marker.setIcon(iconForStation(s.isTesla))
@@ -182,10 +196,18 @@ export function EVMarkers({ map, stations, route }: Props) {
                 toAddRouteLayer.push(existing.marker)
               }
               moved++
+            } else if (
+              // Icon needs updating (isTesla flipped — very rare)
+              existing.fp.split('|')[0] !== newFp.split('|')[0]
+            ) {
+              existing.marker.setIcon(inRoute ? highlightIcon(s.isTesla) : iconForStation(s.isTesla))
             }
+
+            // Always update popup when fingerprint changed
             existing.marker.setPopupContent(buildPopupHTML(s))
             markerMap.set(s.id, { marker: existing.marker, inRoute, fp: newFp })
           } else {
+            // New station — create marker once
             const icon = inRoute ? highlightIcon(s.isTesla) : iconForStation(s.isTesla)
             const m = L.marker([s.position.lat, s.position.lng], { icon, zIndexOffset: inRoute ? 800 : 0 })
             m.bindPopup(buildPopupHTML(s), { maxWidth: 300, minWidth: 230, className: 'ev-popup' })

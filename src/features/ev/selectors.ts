@@ -51,3 +51,8 @@ export function filterCounts(stations: EVStation[]) {
     available: stations.filter((s) => s.availablePorts > 0).length,
   }
 }
+
+/** Selector: returns all stations from the normalized entity store. */
+export function selectAllStations(state: { entitiesById: Record<string, EVStation> }): EVStation[] {
+  return Object.values(state.entitiesById)
+}
