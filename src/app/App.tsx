@@ -126,10 +126,25 @@ export function App() {
   const setAlts      = useRouteStore((s) => s.setAlternatives)
   const events       = useEventStore((s) => s.events)
 
+  // ── Effective filter route ─────────────────────────────────────────────────
+  // When alternatives are shown (no active route yet): merge both corridors.
+  // When a route is chosen: use just that route.
+  // Either way, markers outside the corridor(s) are hidden.
+  const filterRoute = useMemo(() => {
+    if (route) return route
+    if (alternatives?.length) {
+      const merged: [number, number][] = ([] as [number, number][]).concat(
+        ...alternatives.map((a) => a.coordinates),
+      )
+      return { ...alternatives[0], coordinates: merged }
+    }
+    return null
+  }, [route, alternatives])
+
   // ── Derived — memoised so EVMarkers only rerenders when the filtered set changes ──
   const filteredStations = useMemo(
-    () => applyFilter(stations, filterMode, route),
-    [stations, filterMode, route],
+    () => applyFilter(stations, filterMode, filterRoute),
+    [stations, filterMode, filterRoute],
   )
 
   useAutoRefresh(map, trigger)
@@ -143,9 +158,10 @@ export function App() {
 
   const handleBoundsChange = useCallback((m: LMap) => {
     trigger(m)
-    // When a route is active, events are filtered client-side along the route —
-    // no need to re-query the entire viewport on every pan/zoom
-    if (!useRouteStore.getState().route) triggerEv(m)
+    // When navigating (route active or picking between alternatives),
+    // events are filtered client-side — skip bbox polling on pan/zoom
+    const s = useRouteStore.getState()
+    if (!s.route && !s.alternatives) triggerEv(m)
   }, [trigger, triggerEv])
   const handleRetry        = useCallback(() => {
     setError(null)
@@ -162,8 +178,8 @@ export function App() {
       <MapShell isDark={isDark} onMapReady={handleMapReady} onBoundsChange={handleBoundsChange} />
 
       {/* Markers */}
-      <EVMarkers   map={map} stations={filteredStations} route={route} />
-      <EventMarkers map={map} events={events} route={route} />
+      <EVMarkers   map={map} stations={filteredStations} route={filterRoute} />
+      <EventMarkers map={map} events={events} route={filterRoute} />
 
       {/* Route */}
       <RouteLayer map={map} route={route} alternatives={alternatives} />
