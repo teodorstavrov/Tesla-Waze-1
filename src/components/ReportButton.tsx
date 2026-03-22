@@ -1,29 +1,15 @@
 /**
  * ReportButton — opens a 2×2 grid of event types above the button.
  * Popup is absolutely positioned so it never shifts the dock layout.
+ * Plays a 'report' beep via audioManager after successfully submitting.
  */
 import { useState, useCallback } from 'react'
 import type { Map as LMap }      from 'leaflet'
 import { useEventStore }         from '@/features/events/store'
 import type { EventType }        from '@/features/events/types'
+import { audioManager }          from '@/features/audio/audioManager'
 
 interface Props { map: LMap | null }
-
-function playBeep() {
-  try {
-    const ctx = new AudioContext()
-    const osc  = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.type = 'sine'
-    osc.frequency.value = 880
-    gain.gain.setValueAtTime(0.25, ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18)
-    osc.start()
-    osc.stop(ctx.currentTime + 0.18)
-  } catch { /* ignore */ }
-}
 
 const EVENT_CONFIG: Array<{ type: EventType; label: string; colour: string; icon: JSX.Element }> = [
   {
@@ -80,7 +66,10 @@ export function ReportButton({ map }: Props) {
   const report = useCallback((type: EventType) => {
     setOpen(false)
     if (!map) return
-    const place = (lat: number, lng: number) => { addEvent(type, lat, lng); playBeep() }
+    const place = (lat: number, lng: number) => {
+      addEvent(type, lat, lng)
+      audioManager.playUI('report')
+    }
     const fallback = () => { const c = map.getCenter(); place(c.lat, c.lng) }
     if (!navigator.geolocation) { fallback(); return }
     let settled = false

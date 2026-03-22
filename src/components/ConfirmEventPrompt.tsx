@@ -2,10 +2,12 @@
  * ConfirmEventPrompt — Waze-style card shown when near a reported event.
  * Positioned bottom-center above the main dock buttons.
  * Auto-dismisses after 10 s.
+ * Plays an alert beep via audioManager when it appears.
  */
 import { useEffect, useRef, useState } from 'react'
 import type { ReportedEvent, EventType } from '@/features/events/types'
 import { useEventStore } from '@/features/events/store'
+import { audioManager } from '@/features/audio/audioManager'
 
 interface Props {
   event:        ReportedEvent
@@ -35,6 +37,11 @@ export function ConfirmEventPrompt({ event, onStillThere, onRemove }: Props) {
   const timerRef   = useRef<ReturnType<typeof setInterval>>()
   const dismissRef = useRef(onStillThere)
   useEffect(() => { dismissRef.current = onStillThere }, [onStillThere])
+
+  // Play alert sound when the prompt appears
+  useEffect(() => {
+    audioManager.playUI('alert')
+  }, [event.id])
 
   useEffect(() => {
     setRemaining(TIMEOUT_S)

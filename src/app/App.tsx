@@ -18,6 +18,7 @@ import { ErrorBanner }         from '@/components/ErrorBanner'
 import { SirenOverlay }        from '@/components/SirenOverlay'
 import { ConfirmEventPrompt }  from '@/components/ConfirmEventPrompt'
 import { AdminPanel }          from '@/components/AdminPanel'
+import { SatelliteButton }     from '@/components/SatelliteButton'
 
 import { useEVStore }                              from '@/features/ev/store'
 import { useEVPolling }                            from '@/features/ev/hooks/useEVPolling'
@@ -30,7 +31,8 @@ import { useEventStore }                           from '@/features/events/store
 import type { ReportedEvent }                      from '@/features/events/types'
 import { useThemeStore }                           from '@/features/theme/store'
 import { useSunTheme }                             from '@/features/theme/useSunTheme'
-import { useProximityAlerts, unlockAudio } from '@/features/alerts/useProximityAlerts'
+import { useProximityAlerts }                      from '@/features/alerts/useProximityAlerts'
+import { audioManager }                            from '@/features/audio/audioManager'
 
 export function App() {
   const [map, setMap]    = useState<LMap | null>(null)
@@ -40,24 +42,11 @@ export function App() {
   const [siren,        setSiren]        = useState(false)
   const [confirmEvent, setConfirmEvent] = useState<ReportedEvent | null>(null)
 
-  // Unlock speech synthesis + AudioContext on first user interaction
+  // Unlock AudioContext + speechSynthesis on first real user gesture.
+  // All subsequent audio goes through audioManager which is already unlocked.
   useEffect(() => {
     const unlock = () => {
-      // AudioContext warm-up (resume so it's ready for siren)
-      unlockAudio()
-      // Speech synthesis unlock — only if API is available and voices are loaded
-      if (window.speechSynthesis) {
-        const tryUnlock = () => {
-          const u = new SpeechSynthesisUtterance('')
-          u.volume = 0
-          try { window.speechSynthesis.speak(u) } catch { /* ignore */ }
-        }
-        if (window.speechSynthesis.getVoices().length > 0) {
-          tryUnlock()
-        } else {
-          window.speechSynthesis.addEventListener('voiceschanged', tryUnlock, { once: true })
-        }
-      }
+      audioManager.unlock()
     }
     document.addEventListener('touchstart', unlock, { once: true })
     document.addEventListener('click',      unlock, { once: true })
@@ -200,6 +189,9 @@ export function App() {
       <ThemeToggle  isDark={isDark} onToggle={toggleTheme} />
       <LocationButton map={map} />
       <ZoomControls   map={map} />
+
+      {/* Satellite toggle — bottom-left */}
+      <SatelliteButton map={map} isDark={isDark} />
 
       {/* Bottom dock: Signal button + EV stations button */}
       <BottomDock map={map} stations={filteredStations} />

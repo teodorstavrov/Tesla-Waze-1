@@ -1,19 +1,21 @@
 /**
  * HeadingArrow — live GPS position + direction-of-travel arrow.
  *
- * - Larger arrow (40px) with pulsing ring animation
- * - Follow mode: map auto-pans to keep the arrow centered while driving
- *   (speed > 1 m/s). Pauses when the user manually pans; resumes on movement.
+ * - Larger arrow (64px) with pulsing ring animation
+ * - Follow mode: map auto-pans to keep the arrow centered while driving.
+ *   Pauses when the user manually pans (dragstart); resumes via LocationButton
+ *   calling followStore.setFollowing(true).
+ *
+ * followStore is module-level (not React state) so no re-renders are caused.
  */
 import { useEffect, useRef } from 'react'
 import type { Map as LMap, Marker } from 'leaflet'
 import { L } from '@/lib/leaflet'
+import { followStore } from '@/features/map/followStore'
 
 interface Props {
   map: LMap | null
 }
-
-const FOLLOW_SPEED_MS = 1.0   // m/s — start following above this speed
 
 function arrowIcon(heading: number | null) {
   if (heading === null) {
@@ -64,19 +66,24 @@ function arrowIcon(heading: number | null) {
 }
 
 export function HeadingArrow({ map }: Props) {
-  const markerRef    = useRef<Marker | null>(null)
-  const watchRef     = useRef<number | null>(null)
-  const followRef    = useRef(true)   // true = follow user
-  const dragRef      = useRef(false)  // true = user is dragging
+  const markerRef = useRef<Marker | null>(null)
+  const watchRef  = useRef<number | null>(null)
 
   useEffect(() => {
     if (!map || !navigator.geolocation) return
 
-    // Pause follow when user manually drags the map
-    const onDragStart = () => { dragRef.current = true; followRef.current = false }
+    // Pause follow when user manually drags the map.
+    // Leaflet only fires 'dragstart' from real user touch/mouse drags,
+    // NOT from programmatic setView() calls — so this is safe.
+    const onDragStart = () => {
+      followStore.setFollowing(false)
+    }
     map.on('dragstart', onDragStart)
 
-    const updateMarker = (lat: number, lng: number, heading: number | null, speed: number | null) => {
+    const updateMarker = (lat: number, lng: number, heading: number | null) => {
+      // Always store the latest GPS position so LocationButton can recenter
+      followStore.setLastPos(lat, lng)
+
       if (!markerRef.current) {
         markerRef.current = L.marker([lat, lng], {
           icon:         arrowIcon(heading),
@@ -88,21 +95,16 @@ export function HeadingArrow({ map }: Props) {
         markerRef.current.setIcon(arrowIcon(heading))
       }
 
-      // Re-enable follow when we start moving again after a manual pan
-      if (speed !== null && speed >= FOLLOW_SPEED_MS) {
-        followRef.current = true
-        dragRef.current   = false
-      }
-
-      if (followRef.current) {
+      // Only recenter the map if follow mode is active
+      if (followStore.isFollowing()) {
         map.setView([lat, lng], map.getZoom(), { animate: true, duration: 0.5 })
       }
     }
 
     watchRef.current = navigator.geolocation.watchPosition(
       (pos) => {
-        const { latitude, longitude, heading, speed } = pos.coords
-        updateMarker(latitude, longitude, heading, speed)
+        const { latitude, longitude, heading } = pos.coords
+        updateMarker(latitude, longitude, heading)
       },
       () => { /* ignore errors */ },
       { enableHighAccuracy: true, maximumAge: 2_000, timeout: 10_000 },

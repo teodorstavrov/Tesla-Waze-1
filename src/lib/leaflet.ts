@@ -16,7 +16,7 @@ export { L }
 
 /** Sofia, Bulgaria — default map center */
 export const SOFIA_CENTER: [number, number] = [42.6977, 23.3219]
-export const DEFAULT_ZOOM = 15
+export const DEFAULT_ZOOM = 14
 export const MIN_ZOOM = 5
 export const MAX_ZOOM = 18
 

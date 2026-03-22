@@ -1,9 +1,10 @@
 /**
- * GPS location button — centers the map on the current position.
+ * GPS location button — centers the map on the current position and restores follow mode.
  *
  * Two-step strategy:
- * 1. Fast coarse fix (cell/WiFi, ~1s) → pan immediately
- * 2. Precise GPS fix (background, up to 8s) → refine position
+ * 1. If followStore has a last-known GPS position, recenter immediately (zero latency)
+ * 2. Also restore follow mode so HeadingArrow resumes auto-panning
+ * 3. If no last-known pos, fall back to navigator.geolocation (coarse first, precise second)
  *
  * Keeps only the latest "you are here" dot (removes previous one).
  */
@@ -11,6 +12,7 @@ import { useState, useRef } from 'react'
 import type { Map as LMap, Marker } from 'leaflet'
 import { L } from '@/lib/leaflet'
 import { useRouteStore } from '@/features/route/store'
+import { followStore } from '@/features/map/followStore'
 
 interface Props { map: LMap | null }
 
@@ -47,6 +49,33 @@ export function LocationButton({ map }: Props) {
     // Clear active route before locating
     if (hasRoute) setRoute(null)
 
+    // Restore follow mode — HeadingArrow will resume auto-panning on next GPS tick
+    followStore.setFollowing(true)
+
+    // If HeadingArrow already has a last-known position, recenter immediately
+    const lastPos = followStore.getLastPos()
+    if (lastPos) {
+      map.setView([lastPos.lat, lastPos.lng], Math.max(map.getZoom(), 14), { animate: true })
+      placeDot(lastPos.lat, lastPos.lng)
+      // Still try to refine with geolocation in the background
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (precise) => {
+            const dx = Math.abs(precise.coords.latitude  - lastPos.lat) +
+                       Math.abs(precise.coords.longitude - lastPos.lng)
+            if (dx > 0.0002) {
+              map.setView([precise.coords.latitude, precise.coords.longitude], Math.max(map.getZoom(), 14), { animate: true })
+              placeDot(precise.coords.latitude, precise.coords.longitude)
+            }
+          },
+          () => { /* last-known pos is good enough */ },
+          { enableHighAccuracy: true, timeout: 8_000, maximumAge: 0 },
+        )
+      }
+      return
+    }
+
+    // No last-known position — fall back to full geolocation flow
     if (!navigator.geolocation) {
       setErrMsg('Geolocation unavailable')
       setState('error')
@@ -112,7 +141,7 @@ export function LocationButton({ map }: Props) {
           active:scale-95 active:bg-tesla-muted
           transition-transform duration-100 select-none
         "
-        onTouchEnd={(e) => e.stopPropagation()}
+        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); locate() }}
       >
         {state === 'locating' ? (
           <svg className="animate-spin" width="20" height="20" viewBox="0 0 20 20" fill="none">
