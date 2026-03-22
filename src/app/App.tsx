@@ -13,7 +13,6 @@ import { ZoomControls }        from '@/components/ZoomControls'
 import { LocationButton }      from '@/components/LocationButton'
 import { SearchBar }           from '@/components/SearchBar'
 import { FloatingTitleCard }   from '@/components/FloatingTitleCard'
-import { FloatingStatsCard }   from '@/components/FloatingStatsCard'
 import { LoadingOverlay }      from '@/components/LoadingOverlay'
 import { ErrorBanner }         from '@/components/ErrorBanner'
 import { SirenOverlay }        from '@/components/SirenOverlay'
@@ -196,7 +195,6 @@ export function App() {
 
       {/* Floating UI */}
       <FloatingTitleCard loading={loadingInitial && Object.keys(entitiesById).length === 0} />
-      <FloatingStatsCard stations={filteredStations} loading={loadingInitial} />
 
       {/* Controls */}
       <ThemeToggle  isDark={isDark} onToggle={toggleTheme} />
