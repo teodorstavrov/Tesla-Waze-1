@@ -131,17 +131,15 @@ export function LocationButton({ map }: Props) {
   }
 
   return (
-    <div className="absolute left-4 bottom-24 z-[1000]">
+    <div className="absolute left-4 bottom-6 z-[1000]">
       <button
         onClick={locate}
         aria-label="Center on my location"
         title={state === 'error' ? errMsg : 'Моята локация'}
-        className="
-          w-28 h-28 glass-card flex items-center justify-center
+        className="glass-card flex items-center justify-center
           active:scale-95 active:bg-tesla-muted
-          transition-transform duration-100 select-none
-        "
-        style={{ borderRadius: 24 }}
+          transition-transform duration-100 select-none"
+        style={{ width: 96, height: 96, borderRadius: 24 }}
         onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); locate() }}
       >
         {state === 'locating' ? (
