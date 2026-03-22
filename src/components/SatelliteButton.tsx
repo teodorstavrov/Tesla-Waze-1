@@ -59,7 +59,7 @@ export function SatelliteButton({ map, isDark }: Props) {
       aria-label={satellite ? 'Стандартна карта' : 'Сателитна карта'}
       style={{
         position:     'fixed',
-        bottom:       24,
+        bottom:       296,
         left:         16,
         zIndex:       1000,
         width:        52,

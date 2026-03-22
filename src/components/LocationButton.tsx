@@ -137,24 +137,25 @@ export function LocationButton({ map }: Props) {
         aria-label="Center on my location"
         title={state === 'error' ? errMsg : 'Моята локация'}
         className="
-          w-14 h-14 glass-card flex items-center justify-center
+          w-28 h-28 glass-card flex items-center justify-center
           active:scale-95 active:bg-tesla-muted
           transition-transform duration-100 select-none
         "
+        style={{ borderRadius: 24 }}
         onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); locate() }}
       >
         {state === 'locating' ? (
-          <svg className="animate-spin" width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <svg className="animate-spin" width="40" height="40" viewBox="0 0 20 20" fill="none">
             <circle cx="10" cy="10" r="8" stroke="#3a3a3a" strokeWidth="2"/>
             <path d="M10 2 A8 8 0 0 1 18 10" stroke="#3d9df3" strokeWidth="2" strokeLinecap="round"/>
           </svg>
         ) : state === 'error' ? (
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <svg width="40" height="40" viewBox="0 0 20 20" fill="none">
             <circle cx="10" cy="10" r="8" stroke="#e31937" strokeWidth="1.5"/>
             <path d="M10 6v4.5M10 13v.5" stroke="#e31937" strokeWidth="1.5" strokeLinecap="round"/>
           </svg>
         ) : (
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <svg width="40" height="40" viewBox="0 0 20 20" fill="none">
             <circle cx="10" cy="10" r="3.5" fill="#3d9df3"/>
             <circle cx="10" cy="10" r="7" stroke="#3d9df3" strokeWidth="1.5"/>
             <path d="M10 1v3M10 16v3M1 10h3M16 10h3" stroke="#3d9df3" strokeWidth="1.5" strokeLinecap="round"/>
