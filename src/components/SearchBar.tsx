@@ -21,10 +21,11 @@ interface Props {
   onPlace: (lat: number, lng: number) => void
 }
 
-const DEBOUNCE_MS = 500
-const MIN_QUERY   = 2
-const HISTORY_KEY = 'search_history'
-const HISTORY_MAX = 5
+const DEBOUNCE_MS  = 500
+const MIN_QUERY    = 2
+const HISTORY_KEY  = 'search_history'
+const HISTORY_MAX  = 5
+const CACHE_TTL_MS = 5 * 60_000  // 5-minute local result cache
 
 interface HistoryEntry {
   placeId:   number
@@ -104,6 +105,9 @@ function nameMatches(text: string, q: string): boolean {
   return text.toLowerCase().includes(q.toLowerCase())
 }
 
+interface CacheEntry { geo: GeoResult[]; ev: StationSearchResult[]; ts: number }
+const _geoCache = new Map<string, CacheEntry>()
+
 export function SearchBar({ map, onPlace }: Props) {
   const [open,       setOpen]       = useState(false)
   const [query,      setQuery]      = useState('')
@@ -115,6 +119,8 @@ export function SearchBar({ map, onPlace }: Props) {
   const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Stale-response guard: each search gets an ID; older responses are discarded
   const reqIdRef  = useRef(0)
+  // AbortController for in-flight geocode requests
+  const abortRef  = useRef<AbortController | null>(null)
   // Cache GPS position for the duration of the open session
   const gpsRef    = useRef<{ lat: number; lng: number } | null>(null)
 
@@ -135,16 +141,35 @@ export function SearchBar({ map, onPlace }: Props) {
 
     setStatus('loading')
     const myReqId = ++reqIdRef.current
-    timerRef.current = setTimeout(async () => {
-      try {
-        // Resolve reference point: GPS > map center > none
-        const ref = gpsRef.current ?? (map?.getCenter()
-          ? { lat: map.getCenter().lat, lng: map.getCenter().lng }
-          : null)
 
-        const near = ref ?? undefined
+    // Cancel any in-flight geocode request
+    abortRef.current?.abort()
+    abortRef.current = new AbortController()
+    const signal = abortRef.current.signal
+
+    timerRef.current = setTimeout(async () => {
+      // Resolve reference point: GPS > map center > none
+      const ref = gpsRef.current ?? (map?.getCenter()
+        ? { lat: map.getCenter().lat, lng: map.getCenter().lng }
+        : null)
+      const near = ref ?? undefined
+
+      // Check local cache (keyed by query only; EV search results by query+near)
+      const cached = _geoCache.get(q)
+      const now = Date.now()
+      if (cached && now - cached.ts < CACHE_TTL_MS) {
+        if (reqIdRef.current !== myReqId) return
+        setPlaces(cached.geo); setEvResults(cached.ev)
+        setStatus(cached.geo.length === 0 && cached.ev.length === 0 ? 'empty' : 'idle')
+        return
+      }
+
+      try {
         const [geoList, evList] = await Promise.all([
-          geocode(q).catch(() => [] as GeoResult[]),
+          geocode(q, signal).catch((e) => {
+            if ((e as Error).name === 'AbortError') throw e
+            return [] as GeoResult[]
+          }),
           searchStations(q, near).catch(() => [] as StationSearchResult[]),
         ])
 
@@ -167,16 +192,23 @@ export function SearchBar({ map, onPlace }: Props) {
           filteredEv.sort((a, b)  => dist(a.lat, a.lng) - dist(b.lat, b.lng))
         }
 
+        // Store in local cache
+        _geoCache.set(q, { geo: filteredGeo, ev: filteredEv, ts: now })
+
         setPlaces(filteredGeo)
         setEvResults(filteredEv)
         setStatus(filteredGeo.length === 0 && filteredEv.length === 0 ? 'empty' : 'idle')
-      } catch {
+      } catch (e) {
+        if ((e as Error).name === 'AbortError') return  // cancelled — no state update
         if (reqIdRef.current !== myReqId) return
         setPlaces([]); setEvResults([]); setStatus('error')
       }
     }, DEBOUNCE_MS)
 
-    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+      abortRef.current?.abort()
+    }
   }, [query])
 
   const expand = useCallback(() => {

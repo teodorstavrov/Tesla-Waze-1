@@ -8,7 +8,10 @@
  *  - GPS callbacks throttled to at most once per 3 s
  *  - Skips processing if position moved less than MIN_MOVE_M (30 m)
  *  - Bbox pre-filter narrows candidates to 2 km radius before haversine
- *  - Zone-crossing tracking (outside→inside) prevents repeat fires
+ *  - Zone-crossing tracking (outside->inside) prevents repeat fires
+ *  - Voice alerts BATCHED per GPS tick — one utterance for all triggered types,
+ *    preventing speechSynthesis queue buildup and cancel/restart thrashing
+ *  - Siren fired once per tick regardless of how many police are in range
  */
 import { useEffect, useRef } from 'react'
 import { useEventStore }     from '@/features/events/store'
@@ -48,7 +51,7 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
   const insideRef    = useRef<Map<string, boolean>>(new Map())
 
   // Throttle / skip-small-move state
-  const lastPosRef      = useRef<{ lat: number; lng: number } | null>(null)
+  const lastPosRef       = useRef<{ lat: number; lng: number } | null>(null)
   const lastProcessedRef = useRef<number>(0)
 
   useEffect(() => {
@@ -59,19 +62,19 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
         const { latitude: lat, longitude: lng } = coords
         const now = Date.now()
 
-        // ── Throttle: skip if processed too recently ────────────────────────
+        // Throttle: skip if processed too recently
         if (now - lastProcessedRef.current < THROTTLE_MS) return
 
-        // ── Skip small moves ────────────────────────────────────────────────
+        // Skip small moves
         if (lastPosRef.current) {
           const moved = haversine(lat, lng, lastPosRef.current.lat, lastPosRef.current.lng)
           if (moved < MIN_MOVE_M) return
         }
 
-        lastPosRef.current      = { lat, lng }
+        lastPosRef.current       = { lat, lng }
         lastProcessedRef.current = now
 
-        // ── Bbox pre-filter: ~2 km box before expensive haversine ───────────
+        // Bbox pre-filter: ~2 km box before expensive haversine
         const latDeg = MAX_ALERT_M / 111_320
         const lngDeg = MAX_ALERT_M / (111_320 * Math.cos(lat * (Math.PI / 180)))
         const candidates = eventsRef.current.filter(
@@ -80,10 +83,16 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
             ev.lng >= lng - lngDeg && ev.lng <= lng + lngDeg,
         )
 
+        // Collect voice alerts for this GPS tick.
+        // Spoken as ONE batched utterance to prevent speechSynthesis queue
+        // buildup and the cancel/restart thrashing that causes Tesla audio jank.
+        const toSpeak: EventType[] = []
+        let   triggerSiren = false
+
         for (const ev of candidates) {
           const dist = haversine(lat, lng, ev.lat, ev.lng)
 
-          // ── Police siren + flash + voice at 800 m ─────────────────────
+          // Police siren + flash at 800 m
           if (ev.type === 'police') {
             const sirenKey  = `${ev.id}:siren`
             const wasInside = insideRef.current.get(sirenKey) ?? false
@@ -94,17 +103,16 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
               const last = sirenedRef.current.get(ev.id) ?? 0
               if (now - last >= COOLDOWN_MS) {
                 sirenedRef.current.set(ev.id, now)
-                // Mark voice alerted too so the generic voice block below doesn't double-fire
                 alertedRef.current.set(ev.id, now)
                 insideRef.current.set(`${ev.id}:voice`, true)
-                playPoliceSiren()
+                triggerSiren = true
                 onPoliceRef.current?.()
-                speak('police')
+                toSpeak.push(ev.type)
               }
             }
           }
 
-          // ── Police close alert at 300 m ────────────────────────────────
+          // Police close alert at 300 m
           if (ev.type === 'police') {
             const closeKey   = `${ev.id}:close`
             const wasInClose = insideRef.current.get(closeKey) ?? false
@@ -115,14 +123,14 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
               const last = alertedRef.current.get(`${ev.id}:close`) ?? 0
               if (now - last >= COOLDOWN_MS) {
                 alertedRef.current.set(`${ev.id}:close`, now)
-                playPoliceSiren()
+                triggerSiren = true
                 onPoliceRef.current?.()
-                speak('police')
+                toSpeak.push(ev.type)
               }
             }
           }
 
-          // ── Voice alert ────────────────────────────────────────────────
+          // Generic voice alert
           const threshold  = ALERT_DISTANCES[ev.type]
           const voiceKey   = `${ev.id}:voice`
           const wasInVoice = insideRef.current.get(voiceKey) ?? false
@@ -133,11 +141,11 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
             const last = alertedRef.current.get(ev.id) ?? 0
             if (now - last >= COOLDOWN_MS) {
               alertedRef.current.set(ev.id, now)
-              speak(ev.type)
+              toSpeak.push(ev.type)
             }
           }
 
-          // ── 5 m confirmation prompt ────────────────────────────────────
+          // 5 m confirmation prompt
           const confirmKey   = `${ev.id}:confirm`
           const wasInConfirm = insideRef.current.get(confirmKey) ?? false
           const nowInConfirm = dist <= CONFIRM_DISTANCE_M
@@ -151,6 +159,16 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
             }
           }
         }
+
+        // Fire siren ONCE per tick (even if multiple police in range)
+        if (triggerSiren) playPoliceSiren()
+
+        // Speak ALL triggered types as ONE utterance: "Полиция. Камера."
+        // Deduplicating prevents "Полиция. Полиция." when 2 police are in range.
+        if (toSpeak.length > 0) {
+          const unique = [...new Set(toSpeak)]
+          speakBatch(unique)
+        }
       },
       null,
       { enableHighAccuracy: false, timeout: 10_000, maximumAge: 5_000 },
@@ -160,31 +178,27 @@ export function useProximityAlerts({ onPolice, onNearEvent }: AlertCallbacks = {
   }, [])
 }
 
-function speak(type: EventType) {
+/** Speak a list of event types as a single merged utterance. */
+function speakBatch(types: EventType[]) {
   if (!window.speechSynthesis) return
-  const text = ALERT_LABELS_BG[type]
+  const text = types.map((t) => ALERT_LABELS_BG[t]).join('. ')
 
   const doSpeak = (voices: SpeechSynthesisVoice[]) => {
-    const utt = new SpeechSynthesisUtterance(text)
+    const utt  = new SpeechSynthesisUtterance(text)
     utt.rate   = 1.0
     utt.volume = 1.0
-    const bg = voices.find((v) => v.lang && v.lang.startsWith('bg'))
-    if (bg) {
-      utt.voice = bg
-    } else {
-      utt.lang = 'bg-BG'  // hint to browser; may or may not be honoured
-    }
-    window.speechSynthesis.cancel()
+    const bg   = voices.find((v) => v.lang?.startsWith('bg'))
+    if (bg) { utt.voice = bg } else { utt.lang = 'bg-BG' }
+    window.speechSynthesis.cancel()   // cancel any previous utterance
     window.speechSynthesis.speak(utt)
   }
 
-  // Delay so siren audio doesn't collide with speech init
+  // Delay so police siren audio doesn't collide with speech init
   setTimeout(() => {
     const voices = window.speechSynthesis.getVoices()
     if (voices.length > 0) {
       doSpeak(voices)
     } else {
-      // Voices not loaded yet — wait for the event (async in Chrome/Chromium)
       window.speechSynthesis.addEventListener(
         'voiceschanged',
         () => doSpeak(window.speechSynthesis.getVoices()),

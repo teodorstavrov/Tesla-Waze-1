@@ -1,6 +1,10 @@
 /**
  * Nominatim geocoding client (OpenStreetMap).
  * No API key required. Rate limit: 1 req/sec — callers must debounce.
+ *
+ * Circuit breaker: after 3 consecutive failures the client backs off for
+ * BACKOFF_MS ms before allowing another attempt. This prevents hammering a
+ * rate-limited or unreachable endpoint and keeps the UI responsive.
  */
 
 export interface GeoResult {
@@ -12,6 +16,12 @@ export interface GeoResult {
   type:        string   // 'city', 'town', 'village', 'highway', etc.
   country:     string
 }
+
+// Circuit breaker state
+const FAIL_THRESHOLD = 3
+const BACKOFF_MS     = 30_000
+let _failCount  = 0
+let _openUntil  = 0
 
 interface NominatimRaw {
   place_id:     number
@@ -37,7 +47,12 @@ function shortName(raw: NominatimRaw): string {
   return a?.city ?? a?.town ?? a?.village ?? a?.municipality ?? a?.county ?? raw.display_name.split(',')[0]!
 }
 
-export async function geocode(query: string): Promise<GeoResult[]> {
+export async function geocode(query: string, signal?: AbortSignal): Promise<GeoResult[]> {
+  // Circuit breaker: reject immediately if still in backoff window
+  if (_failCount >= FAIL_THRESHOLD && Date.now() < _openUntil) {
+    throw new Error('Nominatim circuit open')
+  }
+
   const params = new URLSearchParams({
     q:              query,
     format:         'json',
@@ -45,7 +60,8 @@ export async function geocode(query: string): Promise<GeoResult[]> {
     addressdetails: '1',
   })
 
-  const opts = {
+  const opts: RequestInit = {
+    signal,
     headers: {
       'Accept-Language': 'en',
       'User-Agent': 'tesla-ev-nav/1.0 (github.com/teodorstavrov/Tesla-Waze-1)',
@@ -61,7 +77,14 @@ export async function geocode(query: string): Promise<GeoResult[]> {
     res = await fetch(url, opts)
   }
 
-  if (!res.ok) throw new Error(`Nominatim ${res.status}`)
+  if (!res.ok) {
+    _failCount++
+    if (_failCount >= FAIL_THRESHOLD) _openUntil = Date.now() + BACKOFF_MS
+    throw new Error(`Nominatim ${res.status}`)
+  }
+
+  // Success — reset circuit breaker
+  _failCount = 0
 
   const raw: NominatimRaw[] = await res.json()
 
