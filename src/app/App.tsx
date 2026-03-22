@@ -210,12 +210,13 @@ export function App() {
       <LoadingOverlay visible={loadingInitial && Object.keys(entitiesById).length === 0} />
       <ErrorBanner message={error} onDismiss={() => useEVStore.getState().setError(null)} onRetry={handleRetry} />
 
-      {/* Route alternative picker — shown before user picks a route */}
-      {alternatives && !route && (
+      {/* Route panel — picker when choosing, info card when route is active */}
+      {(alternatives || route) && (
         <RouteAlternativePicker
           alternatives={alternatives}
+          route={route}
           onSelect={(r) => { setRoute(r) }}
-          onCancel={() => setAlts(null)}
+          onCancel={() => { setRoute(null); setAlts(null) }}
         />
       )}
 
