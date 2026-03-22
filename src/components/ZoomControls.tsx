@@ -13,7 +13,7 @@ export function ZoomControls({ map }: Props) {
   const zoomOut = () => map?.zoomOut()
 
   return (
-    <div className="absolute right-4 bottom-24 z-[1000] flex flex-col gap-2">
+    <div className="absolute right-4 bottom-6 z-[1000] flex flex-col gap-2">
       <ZoomBtn onClick={zoomIn} label="Zoom in" icon="+" />
       <ZoomBtn onClick={zoomOut} label="Zoom out" icon="−" />
     </div>
@@ -33,13 +33,12 @@ function ZoomBtn({
     <button
       onClick={onClick}
       aria-label={label}
+      style={{ width: 96, height: 96, borderRadius: 24, fontSize: 36, fontWeight: 300 }}
       className="
-        w-14 h-14 glass-card flex items-center justify-center
-        text-2xl font-light text-tesla-text
+        glass-card flex items-center justify-center text-tesla-text
         active:scale-95 active:bg-tesla-muted
         transition-transform duration-100 select-none
       "
-      // Prevent map receiving the tap event after button handles it
       onTouchEnd={(e) => e.stopPropagation()}
     >
       {icon}
