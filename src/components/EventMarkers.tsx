@@ -158,7 +158,7 @@ export function EventMarkers({ map, events, route }: Props) {
           <div style="font-size:14px;font-weight:600;color:${colour};margin-bottom:4px">${label}</div>
           <div style="font-size:12px;color:#8a8a8a;margin-bottom:6px">${age}</div>
           ${confirmCount > 0 ? `<div style="font-size:12px;color:#3dd68c;margin-bottom:8px">✓ ${confirmCount} потвърждения</div>` : ''}
-          <button onclick="document.dispatchEvent(new CustomEvent('removeEvent',{detail:'${ev.id}'}));"
+          <button onclick="document.dispatchEvent(new CustomEvent('removeEvent',{detail:${JSON.stringify(ev.id)}}))"
                   style="width:100%;height:36px;background:rgba(227,25,55,0.12);border:none;
                          border-radius:6px;color:#e31937;font-size:12px;font-weight:600;cursor:pointer">
             Remove

@@ -143,7 +143,7 @@ export function buildPopupHTML(station: EVStation): string {
 
       <!-- Navigate button — dispatches custom event handled by App.tsx -->
       <button
-         onclick="window.dispatchEvent(new CustomEvent('ev:navigate',{detail:{lat:${lat},lng:${lng},name:'${name.replace(/'/g, "\\'")}'}}))"
+         onclick="window.dispatchEvent(new CustomEvent('ev:navigate',{detail:${JSON.stringify({lat,lng,name})}}))"
          ontouchstart="this.style.background='rgba(61,157,243,0.22)'"
          ontouchend="this.style.background='rgba(61,157,243,0.12)'"
          style="

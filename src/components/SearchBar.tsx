@@ -113,6 +113,8 @@ export function SearchBar({ map, onPlace }: Props) {
   const [status,     setStatus]     = useState<'idle' | 'loading' | 'empty' | 'error'>('idle')
   const inputRef  = useRef<HTMLInputElement>(null)
   const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Stale-response guard: each search gets an ID; older responses are discarded
+  const reqIdRef  = useRef(0)
   // Cache GPS position for the duration of the open session
   const gpsRef    = useRef<{ lat: number; lng: number } | null>(null)
 
@@ -132,6 +134,7 @@ export function SearchBar({ map, onPlace }: Props) {
     }
 
     setStatus('loading')
+    const myReqId = ++reqIdRef.current
     timerRef.current = setTimeout(async () => {
       try {
         // Resolve reference point: GPS > map center > none
@@ -144,6 +147,9 @@ export function SearchBar({ map, onPlace }: Props) {
           geocode(q).catch(() => [] as GeoResult[]),
           searchStations(q, near).catch(() => [] as StationSearchResult[]),
         ])
+
+        // Discard if a newer request has already been issued
+        if (reqIdRef.current !== myReqId) return
 
         // Filter: only keep results whose visible name contains the query
         const ql = q.toLowerCase()
@@ -165,6 +171,7 @@ export function SearchBar({ map, onPlace }: Props) {
         setEvResults(filteredEv)
         setStatus(filteredGeo.length === 0 && filteredEv.length === 0 ? 'empty' : 'idle')
       } catch {
+        if (reqIdRef.current !== myReqId) return
         setPlaces([]); setEvResults([]); setStatus('error')
       }
     }, DEBOUNCE_MS)

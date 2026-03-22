@@ -2,7 +2,6 @@
  * BottomDock — two buttons centred at the bottom.
  * Left:  Signal report button
  * Right: EV stations button
- * Above: Cancel navigation strip (shown only when route is active)
  */
 import { useState } from 'react'
 import type { Map as LMap } from 'leaflet'
@@ -16,19 +15,8 @@ interface Props {
   stations: EVStation[]
 }
 
-function formatDist(m: number): string {
-  return m >= 1000 ? `${(m / 1000).toFixed(1)} км` : `${Math.round(m)} м`
-}
-
-function formatDur(s: number): string {
-  const h   = Math.floor(s / 3600)
-  const min = Math.round((s % 3600) / 60)
-  return h > 0 ? `${h} ч ${min} мин` : `${min} мин`
-}
-
 export function BottomDock({ map, stations }: Props) {
   const [evOpen, setEvOpen] = useState(false)
-  const route    = useRouteStore((s) => s.route)
   const setRoute = useRouteStore((s) => s.setRoute)
 
   const cancelNav = () => {

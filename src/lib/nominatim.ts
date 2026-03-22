@@ -45,15 +45,21 @@ export async function geocode(query: string): Promise<GeoResult[]> {
     addressdetails: '1',
   })
 
-  const res = await fetch(
-    `https://nominatim.openstreetmap.org/search?${params}`,
-    {
-      headers: {
-        'Accept-Language': 'en',
-        'User-Agent': 'tesla-ev-nav/1.0 (github.com/teodorstavrov/Tesla-Waze-1)',
-      },
+  const opts = {
+    headers: {
+      'Accept-Language': 'en',
+      'User-Agent': 'tesla-ev-nav/1.0 (github.com/teodorstavrov/Tesla-Waze-1)',
     },
-  )
+  }
+  const url = `https://nominatim.openstreetmap.org/search?${params}`
+
+  let res = await fetch(url, opts)
+
+  // Backoff on rate-limit: wait 2s and retry once
+  if (res.status === 429) {
+    await new Promise((r) => setTimeout(r, 2_000))
+    res = await fetch(url, opts)
+  }
 
   if (!res.ok) throw new Error(`Nominatim ${res.status}`)
 
